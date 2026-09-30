@@ -56,6 +56,12 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/clinics/{id}", s.clinicDetails)
 	mux.HandleFunc("GET /api/doctors/{id}", s.doctorDetails)
 	mux.HandleFunc("GET /api/social/nearby", s.nearbySocial)
+	mux.HandleFunc("GET /api/benefits", s.listBenefits)
+	mux.HandleFunc("GET /api/benefits/{id}", s.benefitDetails)
+	mux.HandleFunc("PUT /api/benefits/{id}", s.saveBenefit)
+	mux.HandleFunc("GET /api/guides", s.listGuides)
+	mux.HandleFunc("GET /api/guides/{id}", s.guideDetails)
+	mux.HandleFunc("PUT /api/guides/{id}/read", s.markGuide)
 	return mux
 }
 
