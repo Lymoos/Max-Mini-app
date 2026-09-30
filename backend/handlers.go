@@ -25,6 +25,7 @@ type Server struct {
 	geocoder Geocoder
 	ai       AI
 	botToken string
+	readers  []TextReader
 	now      func() time.Time
 }
 
@@ -39,6 +40,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/tasks", s.createTask)
 	mux.HandleFunc("PATCH /api/tasks/{id}", s.updateTask)
 	mux.HandleFunc("PATCH /api/tasks/{id}/items/{itemId}", s.updateTaskItem)
+	mux.HandleFunc("POST /api/recipe", s.readRecipe)
 	mux.HandleFunc("GET /api/features", s.listFeatures)
 	mux.HandleFunc("POST /api/ask", s.ask)
 	mux.HandleFunc("GET /api/profile", s.getProfile)
