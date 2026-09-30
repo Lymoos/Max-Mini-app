@@ -165,8 +165,10 @@ func TestTesseractAndPdfText(t *testing.T) {
 		}
 	}
 
-	if _, err := exec.LookPath("pdftotext"); err != nil {
-		t.Log("pdftotext не установлен, пропускаем")
+	// в Git для Windows лежит pdftotext из xpdf: stdin не читает и теряет кириллицу, нужен poppler
+	version, _ := exec.Command("pdftotext", "-v").CombinedOutput()
+	if !strings.Contains(string(version), "Poppler") {
+		t.Log("pdftotext из poppler не установлен, пропускаем")
 	} else {
 		text, err := PdfText{}.ReadText(context.Background(), pdf, "application/pdf")
 		if err != nil || recipeIDs(recipeByRules(text)) != "metformin,cardiomagnil" {
