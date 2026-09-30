@@ -2517,11 +2517,105 @@ button:focus-visible {
   font-size: 15px;
 }
 
+/* плавные появления и нажатия. Двигаем только opacity и transform, чтобы вёрстка не прыгала.
+   backwards, а не both: после анимации transform не держится и не мешает :active */
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+main > * {
+  animation: fade 0.25s ease backwards;
+}
+
+.search-message,
+.suggestions {
+  animation: appear 0.2s ease backwards;
+}
+
+.card,
+.task,
+.tile,
+.promo {
+  animation: appear 0.35s ease backwards;
+}
+
+.pharmacy-list > :nth-child(2),
+.task-list > :nth-child(2),
+.tiles > :nth-child(2),
+.promo-list > :nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.pharmacy-list > :nth-child(3),
+.task-list > :nth-child(3),
+.tiles > :nth-child(3),
+.promo-list > :nth-child(3) {
+  animation-delay: 80ms;
+}
+
+.pharmacy-list > :nth-child(4),
+.task-list > :nth-child(4),
+.tiles > :nth-child(4),
+.promo-list > :nth-child(4) {
+  animation-delay: 120ms;
+}
+
+.pharmacy-list > :nth-child(n + 5),
+.task-list > :nth-child(n + 5),
+.promo-list > :nth-child(n + 5) {
+  animation-delay: 160ms;
+}
+
+.overlay {
+  animation: fade 0.2s ease backwards;
+}
+
+.sheet {
+  animation: appear 0.3s ease backwards;
+}
+
+.task-done .task-circle {
+  animation: pop 0.3s ease;
+}
+
+.btn,
+.chip,
+.chip-btn,
+.link-btn,
+.back-btn,
+.nav-item,
+.add-btn,
+.search-clear,
+.profile-btn,
+.suggestion {
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.btn:active:not(:disabled),
+.chip:active,
+.chip-btn:active:not(:disabled),
+.link-btn:active,
+.back-btn:active,
+.nav-item:active,
+.add-btn:active,
+.search-clear:active,
+.profile-btn:active,
+.suggestion:active {
+  transform: scale(0.96);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
   }
 }
