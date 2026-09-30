@@ -13,8 +13,6 @@ var features = []Feature{
 	{ID: "pharmacy", Title: "Аптеки рядом", Icon: "pill", Color: "green"},
 	{ID: "goods", Title: "Товары рядом", Icon: "cart", Color: "blue"},
 	{ID: "doctor", Title: "Запись к врачу", Icon: "stethoscope", Color: "rose"},
-	{ID: "taxi", Title: "Вызвать такси", Icon: "car", Color: "amber"},
-	{ID: "call", Title: "Связаться с близкими", Icon: "phone", Color: "violet"},
 	{ID: "social", Title: "Соцпомощь", Icon: "heart", Color: "orange"},
 }
 
@@ -62,9 +60,7 @@ var tabTitles = map[string]string{
 var askRules = []askRule{
 	{words: []string{"аптек"}, kind: "feature", target: "pharmacy"},
 	{words: []string{"врач", "доктор", "поликлиник", "терапевт", "запис"}, kind: "feature", target: "doctor"},
-	{words: []string{"такси", "поехать", "доехать"}, kind: "feature", target: "taxi"},
 	{words: []string{"волонт", "соцпомощ", "соцзащит", "соцработ", "социальн"}, kind: "feature", target: "social"},
-	{words: []string{"позвон", "дочер", "сын", "внук", "родн", "близк"}, kind: "feature", target: "call"},
 	{words: []string{"купить", "товар", "магазин", "продукт"}, kind: "feature", target: "goods"},
 	{words: []string{"таблет", "лекарств", "витамин"}, kind: "tab", target: "medicines"},
 	{words: []string{"документ", "паспорт", "снилс", "полис", "справк"}, kind: "tab", target: "documents"},

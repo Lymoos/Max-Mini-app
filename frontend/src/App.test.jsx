@@ -69,7 +69,7 @@ describe('App', () => {
     await user.type(screen.getByLabelText('Что вам нужно?'), 'где купить нурофен{Enter}')
     expect(await screen.findByText('70 ₽')).toBeInTheDocument()
     expect(screen.getByText('Ибупрофен')).toBeInTheDocument()
-    expect(within(screen.getByRole('navigation')).getByText('Лекарства').closest('button')).toHaveAttribute('aria-current', 'page')
+    expect(within(screen.getByRole('navigation')).queryByText('Лекарства')).not.toBeInTheDocument()
 
     await user.click(screen.getByLabelText('Показать все аптеки'))
     expect(await screen.findByText('Лучшие аптеки рядом')).toBeInTheDocument()
@@ -90,7 +90,7 @@ describe('App', () => {
     const fetchMock = mockAll({})
     render(<App />)
 
-    await user.click(within(screen.getByRole('navigation')).getByText('Лекарства'))
+    await user.click(await screen.findByRole('button', { name: 'Аптеки рядом' }))
     await screen.findByText('Аптека Здоровье')
     await user.click(screen.getByRole('button', { name: 'Указать' }))
 
@@ -189,7 +189,7 @@ describe('App', () => {
     await screen.findByText('Адрес сохранён')
     await user.click(screen.getByLabelText('Закрыть'))
 
-    await user.click(within(screen.getByRole('navigation')).getByText('Лекарства'))
+    await user.click(await screen.findByRole('button', { name: 'Аптеки рядом' }))
     expect(await screen.findByText('Рядом с: ' + place.address)).toBeInTheDocument()
   })
 

@@ -1114,6 +1114,61 @@ button:focus-visible {
 
 /* для вас */
 
+.foryou-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 4px;
+  padding: 0 4px;
+  text-align: left;
+}
+
+.foryou-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 13px;
+  background: #fbe9ec;
+  color: #b8566a;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.foryou-arrow {
+  display: flex;
+  margin-left: auto;
+  color: var(--text-muted);
+  transform: rotate(-90deg);
+  transition: transform 0.25s ease;
+}
+
+.foryou-arrow-open {
+  transform: rotate(90deg);
+}
+
+.foryou-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows 0.3s ease, opacity 0.3s ease, visibility 0.3s;
+}
+
+.foryou-body-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+}
+
+.foryou-inner {
+  overflow: hidden;
+}
+
 .foryou-list {
   display: flex;
   flex-direction: column;
@@ -1710,7 +1765,7 @@ button:focus-visible {
   bottom: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   max-width: 480px;
   margin: 0 auto;
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
@@ -1753,5 +1808,14 @@ button:focus-visible {
   }
   .nav-item {
     font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

@@ -2,7 +2,6 @@ import Icon from './Icon'
 
 const tabs = [
   { id: 'home', title: 'Дом', icon: 'home' },
-  { id: 'medicines', title: 'Лекарства', icon: 'pill' },
   { id: 'documents', title: 'Документы', icon: 'document' },
   { id: 'help', title: 'Помощь', icon: 'help' },
 ]

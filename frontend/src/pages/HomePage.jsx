@@ -20,8 +20,8 @@ function HomePage({ onOpenTab, onOpenFeature, onOpenMedicine, onOpenProduct, onO
     <>
       <AskBox onAnswer={handleAnswer} onOpenProfile={onOpenProfile} />
       <div className="page">
-        <ForYou onOpenShop={onOpenShop} />
         <TodayTasks />
+        <ForYou onOpenShop={onOpenShop} />
         <Features onOpen={onOpenFeature} />
       </div>
     </>

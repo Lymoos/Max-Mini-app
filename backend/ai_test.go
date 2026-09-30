@@ -158,7 +158,8 @@ func TestAIAnswer(t *testing.T) {
 	}{
 		{`{"type": "medicine", "target": "Ибупрофен"}`, "medicine", "ibuprofen"},
 		{`{"type": "product", "target": "Гречка"}`, "product", "buckwheat"},
-		{`{"type": "feature", "target": "taxi"}`, "feature", "taxi"},
+		{`{"type": "feature", "target": "social"}`, "feature", "social"},
+		{`{"type": "feature", "target": "taxi"}`, "", ""},
 		{`{"type": "tab", "target": "documents"}`, "tab", "documents"},
 		{`{"type": "tab", "target": "settings"}`, "", ""},
 		{`{"type": "medicine", "target": "Выдуманное"}`, "", ""},
