@@ -47,6 +47,12 @@ var taskFillers = map[string]bool{
 	"будильник": true, "на": true,
 }
 
+// «надо в среду в 10 сходить в поликлинику» — тоже задача, если названо время
+func mentionsTime(text string) bool {
+	text = strings.ReplaceAll(strings.ToLower(text), "ё", "е")
+	return clockRe.MatchString(text) || hourRe.MatchString(text) || laterRe.MatchString(text)
+}
+
 func hourOfDay(hour int, part string) int {
 	part = strings.TrimSpace(part)
 	if (part == "дня" || part == "вечера") && hour < 12 {

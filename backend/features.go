@@ -365,7 +365,7 @@ var askRules = []askRule{
 
 func answerQuestion(text string, now time.Time) AskAnswer {
 	q := prepareAsk(text)
-	if q.hasAny(remindStems...) {
+	if q.hasAny(remindStems...) || (q.hasAny("надо", "нужно") && mentionsTime(q.String())) {
 		return taskAnswer(parseTask(q.String(), now), now)
 	}
 
