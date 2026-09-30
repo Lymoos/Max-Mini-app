@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: maxapp
+      POSTGRES_PASSWORD: maxapp
+      POSTGRES_DB: maxapp
+    ports:
+      - "5440:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/testdb.sql:/docker-entrypoint-initdb.d/testdb.sql
+
+volumes:
+  pgdata:
