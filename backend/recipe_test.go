@@ -57,6 +57,13 @@ func TestRecipeByRules(t *testing.T) {
 		t.Errorf("%+v", items)
 	}
 
+	// как принимать — следующей строкой, «мг» распознан как «Mr»
+	items = recipeByRules("Вр: Конкор 5 Mr\n1 таб. утром\nВр: Омепразол 20 мг\nВрач Петрова")
+	if recipeIDs(items) != "bisoprolol,omeprazol" || items[0].Title != "Конкор (Бисопролол)" || items[0].Dose != "5 Mr, 1 таб. утром" ||
+		items[1].Title != "Омепразол" || items[1].Dose != "20 мг" {
+		t.Errorf("%+v", items)
+	}
+
 	for _, text := range []string{"", "Врач Петрова А.С.\nПоликлиника № 2\nПодпись, печать", "Анализ крови общий"} {
 		if items := recipeByRules(text); len(items) != 0 {
 			t.Errorf("%q: лишнее %+v", text, items)
@@ -70,7 +77,7 @@ func TestDoseFromLine(t *testing.T) {
 		"Витамин D3 2000 МЕ":                 "2000 МЕ",
 		"Нитроглицерин 0,5 мг":               "0,5 мг",
 		"Омепразол — перед едой":             "перед едой",
-		"Смекта":                             "",
+		"Смекта": "",
 	}
 	for line, want := range cases {
 		if got := doseFromLine(line); got != want {

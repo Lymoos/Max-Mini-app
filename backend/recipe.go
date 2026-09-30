@@ -146,9 +146,13 @@ type RecipeItem struct {
 	MedicineID string `json:"medicineId"`
 }
 
-var doseRe = regexp.MustCompile(`(?i)\d+(?:[.,]\d+)?\s*(?:мг|мкг|мл|ме|ед|г|%)`)
+// «мг» распознавание иногда путает с латинскими «mg» или «Mr»
+var doseRe = regexp.MustCompile(`(?i)\d+(?:[.,]\d+)?\s*(?:мг|mg|mr|мкг|мл|ме|ед|г|%)`)
 
-// дозу и как принимать берём из той же строки рецепта: «10 мг — по 1 таб. утром»
+// строка с тем, как принимать: «по 1 таб. в обед», «2 раза в день»
+var howRe = regexp.MustCompile(`(?i)^(?:по\s|\d+\s*(?:таб|капс|кап|раз))`)
+
+// дозу и как принимать берём из строки рецепта: «10 мг — по 1 таб. утром»
 func doseFromLine(line string) string {
 	dose := doseRe.FindString(line)
 	if _, how, ok := strings.Cut(line, "—"); ok {
@@ -167,16 +171,36 @@ func doseFromLine(line string) string {
 func recipeByRules(text string) []RecipeItem {
 	items := []RecipeItem{}
 	seen := map[string]bool{}
-	for _, line := range strings.Split(text, "\n") {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
 		item, ok := findInText(medicineItems(), line)
 		if !ok || seen[item.ID] {
 			continue
 		}
 		seen[item.ID] = true
 		m, _ := findMedicine(item.ID)
-		items = append(items, RecipeItem{Title: m.Name, Dose: doseFromLine(line), MedicineID: m.ID})
+		dose := doseFromLine(line)
+		// как принимать часто пишут следующей строкой
+		if i+1 < len(lines) && !strings.Contains(line, "—") {
+			next := strings.TrimSpace(lines[i+1])
+			if howRe.MatchString(next) {
+				dose = strings.TrimPrefix(dose+", "+next, ", ")
+			}
+		}
+		items = append(items, RecipeItem{Title: writtenName(m, line), Dose: dose, MedicineID: m.ID})
 	}
 	return items
+}
+
+// в рецепте часто торговое название — показываем его, чтобы человек узнал своё лекарство: «Конкор (Бисопролол)»
+func writtenName(m Medicine, line string) string {
+	text := string(normalize(line))
+	for _, a := range m.Aliases {
+		if len(normalize(a)) >= 4 && strings.Contains(text, string(normalize(a))) {
+			return a + " (" + m.Name + ")"
+		}
+	}
+	return m.Name
 }
 
 // в рецепте бывают лекарства не из справочника, их выписывает ИИ. Каждое название должно быть в тексте рецепта
