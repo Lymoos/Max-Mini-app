@@ -257,6 +257,8 @@ func (b *Bot) addTaskFromButton(ctx context.Context, userID, callbackID, data st
 		return b.api.Answer(ctx, callbackID, "Эта дата уже прошла")
 	}
 	if _, err := b.srv.store.AddTask(ctx, userID, parts[0], Task{Time: parts[1], Title: parts[3], Kind: parts[2]}); err != nil {
+		// без ответа на нажатие кнопка в MAX так и будет крутиться
+		b.api.Answer(ctx, callbackID, "Не удалось добавить задачу, попробуйте ещё раз")
 		return err
 	}
 	return b.api.Answer(ctx, callbackID, "Добавил: "+parts[3]+", "+humanDate(parts[0], b.srv.now())+" в "+parts[1])

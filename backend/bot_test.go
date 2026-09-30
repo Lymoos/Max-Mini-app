@@ -438,3 +438,17 @@ func TestMaxClientCAFile(t *testing.T) {
 		t.Error("файл без PEM")
 	}
 }
+
+func TestBotTaskSaveFailureAnswersButton(t *testing.T) {
+	bot, sender, _ := newTestBot(t)
+	bot.srv.now = func() time.Time { return askNow }
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if err := bot.Handle(ctx, callbackUpdate(555, "addtask:2026-09-30 09:00 medicine Выпить таблетку")); err == nil {
+		t.Error("ошибка базы должна вернуться")
+	}
+	if len(sender.answers) != 1 || sender.answers[0] != "Не удалось добавить задачу, попробуйте ещё раз" {
+		t.Errorf("на нажатие нужно ответить, иначе кнопка крутится: %v", sender.answers)
+	}
+}

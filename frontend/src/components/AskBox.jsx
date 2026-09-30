@@ -63,12 +63,16 @@ function AskBox({ onAnswer, onOpenProfile, onTaskAdded }) {
     setSaving(false)
   }
 
+  // профиль открывается поверх главной, поэтому карточку и текст убираем сами
   function handleGo() {
     if (answer.type === 'task') {
       addTask()
-    } else {
-      onAnswer(answer)
+      return
     }
+    const current = answer
+    setAnswer(null)
+    setText('')
+    onAnswer(current)
   }
 
   function handleChange(e) {

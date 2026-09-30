@@ -43,6 +43,8 @@ describe('AskBox', () => {
 
     await user.click(screen.getByRole('button', { name: 'Искать лекарство' }))
     expect(onAnswer).toHaveBeenCalledWith(answer)
+    expect(screen.queryByText('Напишите название лекарства')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Что вам нужно?')).toHaveValue('')
   })
 
   it('«Отмена» и крестик убирают ответ', async () => {
