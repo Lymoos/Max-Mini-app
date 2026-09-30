@@ -70,7 +70,9 @@ var similarVowels = map[[2]rune]bool{
 	{'е', 'э'}: true, {'э', 'е'}: true,
 }
 
+// соседние переставленные буквы (шрфит — шрифт) считаем одной ошибкой
 func editDistance(a, b []rune, vowelsFree bool) int {
+	prev2 := make([]int, len(b)+1)
 	prev := make([]int, len(b)+1)
 	cur := make([]int, len(b)+1)
 	for j := range prev {
@@ -84,8 +86,11 @@ func editDistance(a, b []rune, vowelsFree bool) int {
 				cost = 0
 			}
 			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+			if i > 1 && j > 1 && a[i-1] == b[j-2] && a[i-2] == b[j-1] {
+				cur[j] = min(cur[j], prev2[j-2]+1)
+			}
 		}
-		prev, cur = cur, prev
+		prev2, prev, cur = prev, cur, prev2
 	}
 	return prev[len(b)]
 }
@@ -171,16 +176,49 @@ func fuzzySuggest(items []CatalogItem, query string, limit int) []Match {
 	return result
 }
 
-// ищем название из каталога среди слов фразы: «где купить нурофена» -> Ибупрофен
+// слова, которыми называют целую группу лекарств: «витамины» — это не «Витамин C»
+var genericWords = []string{"витамин", "таблет", "лекарств", "капл", "мазь", "мази", "крем", "гель", "сироп", "спрей", "средств", "препарат"}
+
+func isGeneric(word []rune) bool {
+	for _, g := range genericWords {
+		if strings.HasPrefix(string(word), g) {
+			return true
+		}
+	}
+	return false
+}
+
+// ищем название из каталога среди слов фразы: «где купить нурофена» -> Ибупрофен.
+// Названия бывают из нескольких слов, поэтому проверяем и сочетания до трёх слов подряд
 func findInText(items []CatalogItem, text string) (CatalogItem, bool) {
 	words := strings.FieldsFunc(text, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '-'
 	})
+	// сочетания, которые начинаются с общего слова («витамин d3»), принимаем только без ошибок
+	type candidate struct {
+		word   []rune
+		strict bool
+	}
+	candidates := []candidate{}
+	for i := range words {
+		joined := []rune{}
+		generic := false
+		for j := i; j < len(words) && j < i+3; j++ {
+			joined = append(joined, normalize(words[j])...)
+			if j == i {
+				generic = isGeneric(joined)
+				if generic {
+					continue
+				}
+			}
+			candidates = append(candidates, candidate{append([]rune{}, joined...), generic})
+		}
+	}
 
 	bestDist := -1
 	var best CatalogItem
-	for _, w := range words {
-		word := normalize(w)
+	for _, c := range candidates {
+		word := c.word
 		if len(word) < 4 {
 			continue
 		}
@@ -190,12 +228,17 @@ func findInText(items []CatalogItem, text string) (CatalogItem, bool) {
 				if len(n) < 4 || len(word) < len(n)-2 {
 					continue
 				}
-				d := levenshtein(word, n)
-				if len(word) > len(n) && len(word)-len(n) <= 3 {
-					d = min(d, levenshtein(word[:len(n)], n))
+				if c.strict {
+					if string(word) == string(n) {
+						return item, true
+					}
+					continue
 				}
-				allowed := textTypos(len(n))
-				if d <= allowed && (bestDist == -1 || d < bestDist) {
+				d := typoDistance(word, n)
+				if len(word) > len(n) && len(word)-len(n) <= 3 {
+					d = min(d, typoDistance(word[:len(n)], n))
+				}
+				if d <= textTypos(len(n)) && (bestDist == -1 || d < bestDist) {
 					bestDist = d
 					best = item
 				}

@@ -57,7 +57,7 @@ var products = []Product{
 	{ID: "washing-powder", Name: "Стиральный порошок", Unit: "3 кг", Aliases: []string{"Порошок"}, BasePrice: 520},
 	{ID: "dish-soap", Name: "Средство для мытья посуды", Unit: "500 мл", Aliases: []string{"Средство для посуды"}, BasePrice: 150},
 	{ID: "paper-towels", Name: "Бумажные полотенца", Unit: "2 рулона", BasePrice: 140},
-	{ID: "adult-diapers", Name: "Подгузники для взрослых", Unit: "10 шт", Aliases: []string{"Памперсы для взрослых"}, BasePrice: 780},
+	{ID: "adult-diapers", Name: "Подгузники для взрослых", Unit: "10 шт", Aliases: []string{"Памперсы для взрослых", "Подгузники"}, BasePrice: 780},
 	{ID: "cat-food", Name: "Корм для кошек", Unit: "85 г", Aliases: []string{"Кошачий корм"}, BasePrice: 40},
 
 	// молочные продукты
