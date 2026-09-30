@@ -12,6 +12,8 @@ function AddTaskForm({ onAdded, onClose }) {
   const [title, setTitle] = useState('')
   const [time, setTime] = useState('')
   const [kind, setKind] = useState('other')
+  const [note, setNote] = useState('')
+  const [list, setList] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -26,7 +28,13 @@ function AddTaskForm({ onAdded, onClose }) {
     setSaving(true)
     setError('')
     try {
-      const task = await createTask({ title: title, time: time, kind: kind })
+      // каждая строка списка — отдельный пункт, который можно отметить
+      const items = list
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line !== '')
+        .map((line) => ({ title: line }))
+      const task = await createTask({ title: title, time: time, kind: kind, note: note.trim(), items: items })
       onAdded(task)
       onClose()
     } catch (err) {
@@ -79,6 +87,28 @@ function AddTaskForm({ onAdded, onClose }) {
             ))}
           </div>
         </div>
+
+        <label className="field">
+          <span className="field-label">Описание (можно не заполнять)</span>
+          <textarea
+            className="field-input field-textarea field-textarea-small"
+            maxLength={1000}
+            rows={2}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </label>
+
+        <label className="field">
+          <span className="field-label">Список — каждый пункт с новой строки (можно не заполнять)</span>
+          <textarea
+            className="field-input field-textarea"
+            rows={3}
+            placeholder={'Хлеб\nМолоко\nТаблетки от давления'}
+            value={list}
+            onChange={(e) => setList(e.target.value)}
+          />
+        </label>
 
         {error !== '' && <p className="error-text">{error}</p>}
 

@@ -25,7 +25,16 @@ function Features({ onOpen }) {
 
   let content
   if (loading) {
-    content = <p className="card card-note">Загрузка…</p>
+    content = (
+      <div className="tiles" aria-label="Загрузка">
+        {[1, 2, 3, 4].map((n) => (
+          <span key={n} className="tile skeleton-tile">
+            <span className="skeleton skeleton-line skeleton-line-2" />
+            <span className="skeleton skeleton-tile-icon" />
+          </span>
+        ))}
+      </div>
+    )
   } else if (error !== '') {
     content = (
       <div className="card card-note">

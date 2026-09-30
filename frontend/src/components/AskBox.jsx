@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createTask, sendAsk, suggestMedicines, suggestProducts } from '../api'
 import CatalogSuggestions from './CatalogSuggestions'
 import Icon from './Icon'
+import RecipeSheet from './RecipeSheet'
 
 // на главной ищем сразу и лекарства, и товары
 async function suggestAll(query) {
@@ -21,6 +22,8 @@ function AskBox({ onAnswer, onOpenProfile, onTaskAdded }) {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showHints, setShowHints] = useState(false)
+  const [recipeFile, setRecipeFile] = useState(null)
+  const fileInput = useRef(null)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -75,6 +78,30 @@ function AskBox({ onAnswer, onOpenProfile, onTaskAdded }) {
     onAnswer(current)
   }
 
+  // сразу открываем выбор фото из галереи, без промежуточных экранов
+  function pickPhoto() {
+    setRecipeFile(null)
+    fileInput.current.value = ''
+    fileInput.current.click()
+  }
+
+  function handleFile(e) {
+    const file = e.target.files && e.target.files[0]
+    if (file) {
+      setMessage('')
+      setAnswer(null)
+      setRecipeFile(file)
+    }
+  }
+
+  function handleRecipeAdded(task, tomorrow) {
+    setRecipeFile(null)
+    setMessage('Список добавлен в задачи: «' + task.title + '», ' + (tomorrow ? 'завтра' : 'сегодня') + ' в ' + task.time)
+    if (onTaskAdded) {
+      onTaskAdded(task)
+    }
+  }
+
   function handleChange(e) {
     setText(e.target.value)
     setShowHints(true)
@@ -99,6 +126,17 @@ function AskBox({ onAnswer, onOpenProfile, onTaskAdded }) {
   return (
     <>
       <div className="search">
+        <button type="button" className="photo-btn" onClick={pickPhoto} aria-label="Прочитать рецепт по фото">
+          <Icon name="camera" size={26} />
+        </button>
+        <input
+          ref={fileInput}
+          className="file-input"
+          type="file"
+          accept="image/*,application/pdf"
+          onChange={handleFile}
+          data-testid="recipe-file"
+        />
         <form className="search-box" onSubmit={handleSubmit} role="search">
           <span className="search-icon">
             <Icon name="search" />
@@ -125,6 +163,9 @@ function AskBox({ onAnswer, onOpenProfile, onTaskAdded }) {
         {showHints && <CatalogSuggestions query={text} fetcher={suggestAll} onPick={handlePick} />}
       </div>
       {message !== '' && <p className="search-message">{message}</p>}
+      {recipeFile && (
+        <RecipeSheet file={recipeFile} onAdded={handleRecipeAdded} onClose={() => setRecipeFile(null)} onRetry={pickPhoto} />
+      )}
       {answer && (
         <div className="answer-card" role="status">
           <p className="answer-text">{answer.message}</p>

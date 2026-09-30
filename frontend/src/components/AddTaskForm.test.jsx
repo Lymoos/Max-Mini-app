@@ -36,7 +36,7 @@ describe('AddTaskForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Добавить' }))
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ title: 'Аспирин', time: '21:00', kind: 'medicine' })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ title: 'Аспирин', time: '21:00', kind: 'medicine', note: '', items: [] })
     expect(onAdded).toHaveBeenCalledWith(created)
     expect(onClose).toHaveBeenCalled()
   })
@@ -74,5 +74,25 @@ describe('AddTaskForm', () => {
   it('ограничивает длину названия', () => {
     render(<AddTaskForm onAdded={() => {}} onClose={() => {}} />)
     expect(screen.getByLabelText('Что нужно сделать')).toHaveAttribute('maxLength', '200')
+  })
+
+  it('описание и список: каждая строка — отдельный пункт, пустые строки пропускаются', async () => {
+    const user = userEvent.setup()
+    const fetchMock = mockFetch({ 'POST /api/tasks': () => jsonResponse({ id: 3, title: 'Магазин', time: '11:00', kind: 'other', done: false }, 201) })
+    render(<AddTaskForm onAdded={() => {}} onClose={() => {}} />)
+
+    await user.type(screen.getByLabelText('Что нужно сделать'), 'Магазин')
+    await user.type(screen.getByLabelText('Время'), '11:00')
+    await user.type(screen.getByLabelText('Описание (можно не заполнять)'), '  Пятёрочка у дома ')
+    await user.type(screen.getByLabelText('Список — каждый пункт с новой строки (можно не заполнять)'), 'Хлеб{Enter}{Enter} Молоко ')
+    await user.click(screen.getByRole('button', { name: 'Добавить' }))
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      title: 'Магазин',
+      time: '11:00',
+      kind: 'other',
+      note: 'Пятёрочка у дома',
+      items: [{ title: 'Хлеб' }, { title: 'Молоко' }],
+    })
   })
 })

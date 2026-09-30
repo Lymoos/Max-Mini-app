@@ -16,6 +16,16 @@ describe('Features', () => {
     expect(screen.getAllByRole('button')).toHaveLength(2)
   })
 
+  it('пока грузится — четыре серых плитки-силуэта, нажать их нельзя', async () => {
+    mockFetch({ 'GET /api/features': () => jsonResponse(demoFeatures) })
+    render(<Features onOpen={() => {}} />)
+
+    expect(document.querySelectorAll('.skeleton-tile')).toHaveLength(4)
+    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    await screen.findByRole('button', { name: 'Товары рядом' })
+    expect(document.querySelector('.skeleton-tile')).toBeNull()
+  })
+
   it('ошибка и повтор', async () => {
     const user = userEvent.setup()
     mockFetch({})

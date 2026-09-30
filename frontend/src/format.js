@@ -68,3 +68,21 @@ export function ageFrom(value, today) {
 export function phoneLink(phone) {
   return 'tel:' + phone.replace(/[^\d+]/g, '')
 }
+
+function pad(n) {
+  return String(n).padStart(2, '0')
+}
+
+// в аптеку предлагаем пойти в ближайший целый час, а поздно вечером — завтра в 10:00
+export function suggestVisit(now) {
+  const next = now.getHours() + 1
+  if (next >= 21) {
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    return { date: dateString(tomorrow), time: '10:00', tomorrow: true }
+  }
+  return { date: dateString(now), time: pad(Math.max(next, 8)) + ':00', tomorrow: false }
+}
+
+function dateString(d) {
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+}
