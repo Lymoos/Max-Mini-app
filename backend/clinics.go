@@ -15,14 +15,15 @@ import (
 const myClinicKm = 5.0
 
 type Doctor struct {
-	ID         int64   `json:"id"`
-	ClinicID   int64   `json:"clinicId"`
-	Name       string  `json:"name"`
-	Specialty  string  `json:"specialty"`
-	Experience int     `json:"experience"`
-	Category   string  `json:"category"`
-	Rating     float64 `json:"rating"`
-	Reviews    int     `json:"reviews"`
+	ID          int64   `json:"id"`
+	ClinicID    int64   `json:"clinicId"`
+	Name        string  `json:"name"`
+	Specialty   string  `json:"specialty"`
+	SpecialtyID string  `json:"specialtyId"`
+	Experience  int     `json:"experience"`
+	Category    string  `json:"category"`
+	Rating      float64 `json:"rating"`
+	Reviews     int     `json:"reviews"`
 }
 
 type Booking struct {
@@ -186,6 +187,7 @@ func (s *Store) Doctors(ctx context.Context, placeID int64) ([]Doctor, error) {
 			return nil, err
 		}
 		d.Rating = float64(rating)
+		d.SpecialtyID = specialtyIDByName(d.Specialty)
 		list = append(list, d)
 	}
 	return list, rows.Err()
@@ -202,5 +204,6 @@ func (s *Store) GetDoctor(ctx context.Context, id int64) (Doctor, error) {
 		return Doctor{}, ErrNotFound
 	}
 	d.Rating = float64(rating)
+	d.SpecialtyID = specialtyIDByName(d.Specialty)
 	return d, err
 }

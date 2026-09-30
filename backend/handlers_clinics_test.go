@@ -117,6 +117,9 @@ func TestClinicAndDoctorDetails(t *testing.T) {
 		Specialties []string    `json:"specialties"`
 	}
 	json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Doctors) == 3 && (resp.Doctors[0].SpecialtyID != "therapist" || resp.Doctors[2].SpecialtyID != "surgeon") {
+		t.Errorf("у врача должен быть id специальности для фильтра из поиска: %+v", resp.Doctors)
+	}
 	if len(resp.Doctors) != 3 || strings.Join(resp.Specialties, ",") != "Терапевт,Хирург" || resp.Clinic.DistanceKm == 0 {
 		t.Errorf("%s", rec.Body.String())
 	}
