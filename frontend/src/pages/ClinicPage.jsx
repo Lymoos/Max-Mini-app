@@ -3,15 +3,25 @@ import { getClinic } from '../api'
 import Icon from '../components/Icon'
 import { formatDistance, formatRating, phoneLink, reviewsText, routeLink, yearsText } from '../format'
 
-function ClinicPage({ clinicId, onOpenDoctor, onBack }) {
+function ClinicPage({ clinicId, specialtyId, onOpenDoctor, onBack }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [specialty, setSpecialty] = useState('')
+  const [noSpecialist, setNoSpecialist] = useState(false)
 
   async function loadClinic() {
     setError('')
     try {
-      setData(await getClinic(clinicId))
+      const result = await getClinic(clinicId)
+      if (specialtyId) {
+        const doctor = result.doctors.find((d) => d.specialtyId === specialtyId)
+        if (doctor) {
+          setSpecialty(doctor.specialty)
+        } else {
+          setNoSpecialist(true)
+        }
+      }
+      setData(result)
     } catch (err) {
       setError(err.message)
     }
@@ -56,6 +66,9 @@ function ClinicPage({ clinicId, onOpenDoctor, onBack }) {
 
         <h2 className="block-title promos-title">Врачи</h2>
         <p className="demo-note">Список врачей — пример для демонстрации</p>
+        {noSpecialist && (
+          <p className="card card-note specialty-hint">В этой поликлинике нет врача нужной специальности. Показаны все врачи.</p>
+        )}
         {data.specialties.length > 1 && (
           <div className="chips" role="group" aria-label="Специальность">
             <button

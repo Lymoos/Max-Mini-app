@@ -26,13 +26,24 @@ function App() {
   const [doctorId, setDoctorId] = useState(null)
   const [benefitId, setBenefitId] = useState(null)
   const [guideId, setGuideId] = useState(null)
+  const [specialtyId, setSpecialtyId] = useState('')
+  const [autoOpenClinic, setAutoOpenClinic] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileVersion, setProfileVersion] = useState(0)
 
   useEffect(() => {
     const param = startParam()
     if (param !== '') {
-      openStartScreen(param, { tab: openTab, feature: openFeature, medicine: openMedicine, product: openProduct, benefit: openBenefit })
+      openStartScreen(param, {
+        tab: openTab,
+        feature: openFeature,
+        medicine: openMedicine,
+        product: openProduct,
+        benefit: openBenefit,
+        doctor: openDoctor,
+        guide: openGuide,
+        profile: () => setProfileOpen(true),
+      })
     }
     document.addEventListener('click', openLinksThroughMax)
     return () => document.removeEventListener('click', openLinksThroughMax)
@@ -61,7 +72,21 @@ function App() {
     setShopId(null)
     setClinicId(null)
     setDoctorId(null)
+    setSpecialtyId('')
+    setAutoOpenClinic(false)
     window.scrollTo(0, 0)
+  }
+
+  // из поиска «нужен кардиолог»: сразу открываем свою поликлинику с врачами этой специальности
+  function openDoctor(id) {
+    openFeature({ id: 'doctor', title: 'Запись к врачу' })
+    setSpecialtyId(id)
+    setAutoOpenClinic(id !== '')
+  }
+
+  function openGuide(id) {
+    openTab('help')
+    setGuideId(id)
   }
 
   function openMedicine(m) {
@@ -91,6 +116,8 @@ function App() {
     setProduct(null)
     setClinicId(null)
     setDoctorId(null)
+    setSpecialtyId('')
+    setAutoOpenClinic(false)
   }
 
   let page
@@ -102,6 +129,7 @@ function App() {
         <ClinicPage
           key={clinicId}
           clinicId={clinicId}
+          specialtyId={specialtyId}
           onOpenDoctor={(id) => {
             setDoctorId(id)
             window.scrollTo(0, 0)
@@ -113,7 +141,10 @@ function App() {
       page = (
         <ClinicsPage
           key={profileVersion}
+          specialtyId={specialtyId}
+          autoOpen={autoOpenClinic}
           onOpenClinic={(id) => {
+            setAutoOpenClinic(false)
             setClinicId(id)
             window.scrollTo(0, 0)
           }}
@@ -149,6 +180,8 @@ function App() {
         onOpenProduct={openProduct}
         onOpenShop={openShop}
         onOpenBenefit={openBenefit}
+        onOpenDoctor={openDoctor}
+        onOpenGuide={openGuide}
         onOpenProfile={() => setProfileOpen(true)}
       />
     )

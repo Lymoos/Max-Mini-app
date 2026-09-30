@@ -28,9 +28,9 @@ describe('AskBox', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('отправляет текст и передаёт найденный раздел наверх', async () => {
+  it('показывает, что можно сделать, и переходит только по кнопке', async () => {
     const user = userEvent.setup()
-    const answer = { type: 'tab', target: 'medicines', message: 'Открываю' }
+    const answer = { type: 'tab', target: 'medicines', message: 'Напишите название лекарства', button: 'Искать лекарство' }
     const fetchMock = mockFetch({ 'POST /api/ask': () => jsonResponse(answer) })
     const onAnswer = vi.fn()
     render(<AskBox onAnswer={onAnswer} />)
@@ -38,7 +38,68 @@ describe('AskBox', () => {
     await user.type(screen.getByLabelText('Что вам нужно?'), 'таблетки{Enter}')
 
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ text: 'таблетки' })
+    expect(await screen.findByText('Напишите название лекарства')).toBeInTheDocument()
+    expect(onAnswer).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Искать лекарство' }))
     expect(onAnswer).toHaveBeenCalledWith(answer)
+  })
+
+  it('«Отмена» и крестик убирают ответ', async () => {
+    const user = userEvent.setup()
+    mockFetch({ 'POST /api/ask': () => jsonResponse({ type: 'profile', message: 'Откроем профиль', button: 'Открыть профиль' }) })
+    render(<AskBox onAnswer={() => {}} />)
+
+    await user.type(screen.getByLabelText('Что вам нужно?'), 'профиль{Enter}')
+    await user.click(await screen.findByRole('button', { name: 'Отмена' }))
+    expect(screen.queryByText('Откроем профиль')).not.toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Что вам нужно?'), '{Enter}')
+    await screen.findByText('Откроем профиль')
+    await user.click(screen.getByLabelText('Очистить'))
+    expect(screen.queryByText('Откроем профиль')).not.toBeInTheDocument()
+  })
+
+  it('задача без времени: сначала выбрать время, потом добавить', async () => {
+    const user = userEvent.setup()
+    const answer = {
+      type: 'task',
+      message: 'Добавлю задачу «Купить хлеба» на сегодня. Выберите время — и я напомню.',
+      button: 'Добавить',
+      task: { title: 'Купить хлеба', time: '', date: '2026-09-30', kind: 'other' },
+    }
+    const fetchMock = mockFetch({
+      'POST /api/ask': () => jsonResponse(answer),
+      'POST /api/tasks': () => jsonResponse({ id: 1, title: 'Купить хлеба', time: '10:30', kind: 'other', done: false }, 201),
+    })
+    const onTaskAdded = vi.fn()
+    render(<AskBox onAnswer={() => {}} onTaskAdded={onTaskAdded} />)
+
+    await user.type(screen.getByLabelText('Что вам нужно?'), 'напомни купить хлеба{Enter}')
+    const add = await screen.findByRole('button', { name: 'Добавить' })
+    expect(add).toBeDisabled()
+
+    await user.type(screen.getByLabelText('Время'), '10:30')
+    await user.click(add)
+    const call = fetchMock.mock.calls.find((c) => c[0] === '/api/tasks')
+    expect(JSON.parse(call[1].body)).toEqual({ title: 'Купить хлеба', time: '10:30', date: '2026-09-30', kind: 'other' })
+    expect(await screen.findByText('Задача «Купить хлеба» добавлена. Напомню в 10:30')).toBeInTheDocument()
+    expect(onTaskAdded).toHaveBeenCalled()
+  })
+
+  it('ошибка при создании задачи видна, карточка остаётся', async () => {
+    const user = userEvent.setup()
+    mockFetch({
+      'POST /api/ask': () =>
+        jsonResponse({ type: 'task', message: 'Добавить?', button: 'Добавить', task: { title: 'X', time: '09:00', date: '2020-01-01', kind: 'other' } }),
+      'POST /api/tasks': () => jsonResponse({ error: 'Дата должна быть не раньше сегодня' }, 400),
+    })
+    render(<AskBox onAnswer={() => {}} />)
+
+    await user.type(screen.getByLabelText('Что вам нужно?'), 'x{Enter}')
+    await user.click(await screen.findByRole('button', { name: 'Добавить' }))
+    expect(await screen.findByText('Дата должна быть не раньше сегодня')).toBeInTheDocument()
+    expect(screen.getByText('Добавить?')).toBeInTheDocument()
   })
 
   it('показывает подсказку, если запрос не понят', async () => {

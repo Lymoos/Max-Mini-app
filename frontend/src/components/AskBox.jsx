@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { sendAsk, suggestMedicines, suggestProducts } from '../api'
+import { createTask, sendAsk, suggestMedicines, suggestProducts } from '../api'
 import CatalogSuggestions from './CatalogSuggestions'
 import Icon from './Icon'
 
@@ -13,9 +13,12 @@ async function suggestAll(query) {
   return result.slice(0, 6)
 }
 
-function AskBox({ onAnswer, onOpenProfile }) {
+function AskBox({ onAnswer, onOpenProfile, onTaskAdded }) {
   const [text, setText] = useState('')
   const [message, setMessage] = useState('')
+  const [answer, setAnswer] = useState(null)
+  const [taskTime, setTaskTime] = useState('')
+  const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showHints, setShowHints] = useState(false)
 
@@ -27,18 +30,45 @@ function AskBox({ onAnswer, onOpenProfile }) {
 
     setLoading(true)
     setMessage('')
+    setAnswer(null)
     setShowHints(false)
     try {
-      const answer = await sendAsk(text)
-      if (answer.type === 'unknown') {
-        setMessage(answer.message)
+      const result = await sendAsk(text)
+      if (result.type === 'unknown') {
+        setMessage(result.message)
       } else {
-        onAnswer(answer)
+        setAnswer(result)
+        setTaskTime(result.task ? result.task.time : '')
       }
     } catch (err) {
       setMessage(err.message)
     }
     setLoading(false)
+  }
+
+  // задачу создаём только после того, как человек нажал «Добавить»
+  async function addTask() {
+    setSaving(true)
+    try {
+      const task = await createTask({ ...answer.task, time: taskTime })
+      setAnswer(null)
+      setText('')
+      setMessage('Задача «' + task.title + '» добавлена. Напомню в ' + taskTime)
+      if (onTaskAdded) {
+        onTaskAdded(task)
+      }
+    } catch (err) {
+      setMessage(err.message)
+    }
+    setSaving(false)
+  }
+
+  function handleGo() {
+    if (answer.type === 'task') {
+      addTask()
+    } else {
+      onAnswer(answer)
+    }
   }
 
   function handleChange(e) {
@@ -49,6 +79,7 @@ function AskBox({ onAnswer, onOpenProfile }) {
   function handleClear() {
     setText('')
     setMessage('')
+    setAnswer(null)
     setShowHints(false)
   }
 
@@ -90,6 +121,35 @@ function AskBox({ onAnswer, onOpenProfile }) {
         {showHints && <CatalogSuggestions query={text} fetcher={suggestAll} onPick={handlePick} />}
       </div>
       {message !== '' && <p className="search-message">{message}</p>}
+      {answer && (
+        <div className="answer-card" role="status">
+          <p className="answer-text">{answer.message}</p>
+          {answer.type === 'task' && (
+            <label className="answer-time">
+              Время
+              <input
+                className="field-input"
+                type="time"
+                value={taskTime}
+                onChange={(e) => setTaskTime(e.target.value)}
+              />
+            </label>
+          )}
+          <div className="answer-buttons">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleGo}
+              disabled={saving || (answer.type === 'task' && taskTime === '')}
+            >
+              {answer.button}
+            </button>
+            <button type="button" className="btn btn-secondary answer-cancel" onClick={() => setAnswer(null)}>
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }

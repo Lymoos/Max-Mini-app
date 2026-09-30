@@ -14,6 +14,12 @@ export function openStartScreen(param, open) {
     open.product({ id: param.slice(5), name: '', unit: '' })
   } else if (param.startsWith('benefit_')) {
     open.benefit(param.slice(8))
+  } else if (param.startsWith('doctor_')) {
+    open.doctor(param.slice(7))
+  } else if (param.startsWith('guide_')) {
+    open.guide(param.slice(6))
+  } else if (param === 'profile') {
+    open.profile()
   } else if (param === 'pharmacy' || param === 'medicines') {
     open.tab('medicines')
   } else if (param === 'goods' || param === 'doctor' || param === 'social') {

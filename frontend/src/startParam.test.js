@@ -4,7 +4,7 @@ import { openLinksThroughMax, openStartScreen, startParam } from './startParam'
 import { jsonResponse, mockFetch } from './testUtils'
 
 function handlers() {
-  return { tab: vi.fn(), feature: vi.fn(), medicine: vi.fn(), product: vi.fn(), benefit: vi.fn() }
+  return { tab: vi.fn(), feature: vi.fn(), medicine: vi.fn(), product: vi.fn(), benefit: vi.fn(), doctor: vi.fn(), guide: vi.fn(), profile: vi.fn() }
 }
 
 describe('запуск из бота', () => {
@@ -32,12 +32,19 @@ describe('запуск из бота', () => {
       ['social', 'feature', { id: 'social' }],
       ['documents', 'tab', 'documents'],
       ['help', 'tab', 'help'],
+      ['doctor_cardiologist', 'doctor', 'cardiologist'],
+      ['guide_font', 'guide', 'font'],
+      ['benefit_overhaul', 'benefit', 'overhaul'],
     ]
     for (const [param, kind, arg] of cases) {
       const open = handlers()
       openStartScreen(param, open)
       expect(open[kind]).toHaveBeenCalledWith(arg)
     }
+
+    const profileOpen = handlers()
+    openStartScreen('profile', profileOpen)
+    expect(profileOpen.profile).toHaveBeenCalled()
 
     const open = handlers()
     openStartScreen('непонятное', open)

@@ -54,19 +54,22 @@ describe('App', () => {
 
   it('поиск открывает вкладку', async () => {
     const user = userEvent.setup()
-    mockAll({ type: 'tab', target: 'documents', message: 'Открываю' })
+    mockAll({ type: 'tab', target: 'documents', message: 'Покажу документы', button: 'Открыть документы' })
     render(<App />)
 
     await user.type(screen.getByLabelText('Что вам нужно?'), 'паспорт{Enter}')
+    expect(await screen.findByText('Покажу документы')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Открыть документы' }))
     expect(await screen.findByRole('heading', { name: 'Документы и льготы' })).toBeInTheDocument()
   })
 
   it('поиск лекарства открывает цены в аптеках, крестик — все аптеки', async () => {
     const user = userEvent.setup()
-    mockAll({ type: 'medicine', target: 'ibuprofen', message: 'Ищем', medicine: ibuprofen })
+    mockAll({ type: 'medicine', target: 'ibuprofen', message: 'Ищем', button: 'Найти в аптеках', medicine: ibuprofen })
     render(<App />)
 
     await user.type(screen.getByLabelText('Что вам нужно?'), 'где купить нурофен{Enter}')
+    await user.click(await screen.findByRole('button', { name: 'Найти в аптеках' }))
     expect(await screen.findByText('70 ₽')).toBeInTheDocument()
     expect(screen.getByText('Ибупрофен')).toBeInTheDocument()
     expect(within(screen.getByRole('navigation')).queryByText('Лекарства')).not.toBeInTheDocument()
@@ -116,10 +119,11 @@ describe('App', () => {
 
   it('поиск открывает возможность, «Назад» возвращает на главную', async () => {
     const user = userEvent.setup()
-    mockAll({ type: 'feature', target: 'goods', message: 'Открываю', feature: demoFeatures[1] })
+    mockAll({ type: 'feature', target: 'goods', message: 'Открываю', button: 'Открыть магазины', feature: demoFeatures[1] })
     render(<App />)
 
     await user.type(screen.getByLabelText('Что вам нужно?'), 'магазин{Enter}')
+    await user.click(await screen.findByRole('button', { name: 'Открыть магазины' }))
     expect(await screen.findByRole('heading', { name: 'Товары рядом' })).toBeInTheDocument()
 
     await user.click(screen.getByText('Назад'))
@@ -155,10 +159,11 @@ describe('App', () => {
 
   it('поиск товара открывает цены в магазинах', async () => {
     const user = userEvent.setup()
-    mockAll({ type: 'product', target: 'milk', message: 'Ищем', product: milk })
+    mockAll({ type: 'product', target: 'milk', message: 'Ищем', button: 'Найти в магазинах', product: milk })
     render(<App />)
 
     await user.type(screen.getByLabelText('Что вам нужно?'), 'нужно молоко{Enter}')
+    await user.click(await screen.findByRole('button', { name: 'Найти в магазинах' }))
     expect(await screen.findByText('80 ₽')).toBeInTheDocument()
     expect(screen.getByText('Молоко 2,5%')).toBeInTheDocument()
   })
@@ -278,6 +283,122 @@ describe('App', () => {
     expect(screen.getByText('таблетки 200 мг, 20 шт')).toBeInTheDocument()
     const call = fetchMock.mock.calls.find((c) => c[0] === '/api/medicines/ibuprofen/offers')
     expect(call[1].headers['X-Max-Init-Data']).toBe('signed')
+    delete window.WebApp
+  })
+
+  it('«нужен кардиолог» открывает свою поликлинику сразу с кардиологами, «Назад» — список поликлиник', async () => {
+    const user = userEvent.setup()
+    const clinic = { id: 2, kind: 'clinic', name: 'ГП № 2', address: '', lat: 55.76, lon: 37.64, rating: 4, reviews: 5, distanceKm: 0.8 }
+    const doctors = [
+      { id: 1, name: 'Иванова Анна Сергеевна', specialty: 'Терапевт', specialtyId: 'therapist', experience: 10, category: '', rating: 4.5, reviews: 3 },
+      { id: 2, name: 'Петров Олег Иванович', specialty: 'Кардиолог', specialtyId: 'cardiologist', experience: 20, category: '', rating: 4.9, reviews: 7 },
+    ]
+    mockFetch({
+      'GET /api/tasks/today': () => jsonResponse(demoTasks),
+      'GET /api/features': () => jsonResponse(demoFeatures),
+      'GET /api/for-you': () => jsonResponse([]),
+      'POST /api/ask': () =>
+        jsonResponse({
+          type: 'doctor',
+          target: 'cardiologist',
+          message: 'Помогу записаться к кардиологу',
+          button: 'Записаться к кардиологу',
+          specialty: { id: 'cardiologist', name: 'Кардиолог' },
+        }),
+      'GET /api/clinics': () =>
+        jsonResponse({ location: location, hasRegistration: true, regAddress: 'x', myClinic: clinic, myClinicChosen: false, nearby: [clinic] }),
+      'GET /api/clinics/2': () => jsonResponse({ clinic: clinic, doctors: doctors, specialties: ['Терапевт', 'Кардиолог'] }),
+    })
+    render(<App />)
+
+    await user.type(screen.getByLabelText('Что вам нужно?'), 'нужен кардиолог{Enter}')
+    await user.click(await screen.findByRole('button', { name: 'Записаться к кардиологу' }))
+
+    expect(await screen.findByText('Петров Олег Иванович')).toBeInTheDocument()
+    expect(screen.queryByText('Иванова Анна Сергеевна')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Кардиолог' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(screen.getByText('Назад'))
+    expect(await screen.findByText('Ваша поликлиника · по прописке')).toBeInTheDocument()
+  })
+
+  it('задача из поиска создаётся только после «Добавить» и появляется в списке', async () => {
+    const user = userEvent.setup()
+    let tasks = demoTasks
+    const fetchMock = mockFetch({
+      'GET /api/tasks/today': () => jsonResponse(tasks),
+      'GET /api/features': () => jsonResponse(demoFeatures),
+      'GET /api/for-you': () => jsonResponse([]),
+      'POST /api/ask': () =>
+        jsonResponse({
+          type: 'task',
+          message: 'Добавить задачу «Полить цветы» на сегодня в 18:00?',
+          button: 'Добавить',
+          task: { title: 'Полить цветы', time: '18:00', date: '2026-09-30', kind: 'other' },
+        }),
+      'POST /api/tasks': () => {
+        const task = { id: 99, title: 'Полить цветы', time: '18:00', kind: 'other', done: false }
+        tasks = { ...demoTasks, tasks: [...demoTasks.tasks, task] }
+        return jsonResponse(task, 201)
+      },
+    })
+    render(<App />)
+
+    await user.type(screen.getByLabelText('Что вам нужно?'), 'напомни полить цветы в 18{Enter}')
+    await screen.findByText('Добавить задачу «Полить цветы» на сегодня в 18:00?')
+    expect(fetchMock.mock.calls.some((c) => c[0] === '/api/tasks')).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: 'Добавить' }))
+    expect(await screen.findByText('Задача «Полить цветы» добавлена. Напомню в 18:00')).toBeInTheDocument()
+    expect(await screen.findByText('Полить цветы')).toBeInTheDocument()
+    const call = fetchMock.mock.calls.find((c) => c[0] === '/api/tasks')
+    expect(JSON.parse(call[1].body)).toEqual({ title: 'Полить цветы', time: '18:00', date: '2026-09-30', kind: 'other' })
+  })
+
+  it('поиск открывает инструкцию и профиль', async () => {
+    const user = userEvent.setup()
+    let answer = { type: 'guide', target: 'font', title: 'Как сделать буквы крупнее', message: 'Есть инструкция', button: 'Открыть инструкцию' }
+    mockFetch({
+      'GET /api/tasks/today': () => jsonResponse(demoTasks),
+      'GET /api/features': () => jsonResponse(demoFeatures),
+      'GET /api/for-you': () => jsonResponse([]),
+      'POST /api/ask': () => jsonResponse(answer),
+      'GET /api/guides/font': () =>
+        jsonResponse({ guide: { id: 'font', title: 'Как сделать буквы крупнее', icon: 'search', steps: ['Откройте настройки'] }, read: false }),
+      'GET /api/profile': () =>
+        jsonResponse({ name: '', birthDate: '', address: '', lat: 0, lon: 0, hasLocation: false, contactName: '', contactPhone: '', health: '' }),
+    })
+    render(<App />)
+
+    await user.type(screen.getByLabelText('Что вам нужно?'), 'как увеличить шрифт{Enter}')
+    await user.click(await screen.findByRole('button', { name: 'Открыть инструкцию' }))
+    expect(await screen.findByText('Откройте настройки')).toBeInTheDocument()
+    expect(within(screen.getByRole('navigation')).getByText('Помощь').closest('button')).toHaveAttribute('aria-current', 'page')
+
+    answer = { type: 'profile', message: 'Откроем профиль', button: 'Открыть профиль' }
+    await user.click(within(screen.getByRole('navigation')).getByText('Дом'))
+    await user.type(screen.getByLabelText('Что вам нужно?'), 'поменять адрес{Enter}')
+    await user.click(await screen.findByRole('button', { name: 'Открыть профиль' }))
+    expect(screen.getByRole('dialog', { name: 'Профиль' })).toBeInTheDocument()
+  })
+
+  it('кнопка из бота doctor_… открывает врачей нужной специальности', async () => {
+    window.WebApp = { initData: 'signed', initDataUnsafe: { start_param: 'doctor_cardiologist' } }
+    const clinic = { id: 2, kind: 'clinic', name: 'ГП № 2', address: '', lat: 55.76, lon: 37.64, rating: 4, reviews: 5, distanceKm: 0.8 }
+    mockFetch({
+      'GET /api/clinics': () =>
+        jsonResponse({ location: location, hasRegistration: true, regAddress: 'x', myClinic: clinic, myClinicChosen: false, nearby: [clinic] }),
+      'GET /api/clinics/2': () =>
+        jsonResponse({
+          clinic: clinic,
+          doctors: [{ id: 1, name: 'Иванова Анна Сергеевна', specialty: 'Терапевт', specialtyId: 'therapist', experience: 10, category: '', rating: 4.5, reviews: 3 }],
+          specialties: ['Терапевт'],
+        }),
+    })
+    render(<App />)
+
+    expect(await screen.findByText('В этой поликлинике нет врача нужной специальности. Показаны все врачи.')).toBeInTheDocument()
+    expect(screen.getByText('Иванова Анна Сергеевна')).toBeInTheDocument()
     delete window.WebApp
   })
 })

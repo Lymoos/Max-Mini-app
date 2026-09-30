@@ -5,7 +5,7 @@ import PlaceCard from '../components/PlaceCard'
 import RegistrationSheet from '../components/RegistrationSheet'
 import { formatDistance } from '../format'
 
-function ClinicsPage({ onOpenClinic, onBack }) {
+function ClinicsPage({ specialtyId, autoOpen, onOpenClinic, onBack }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [askRegistration, setAskRegistration] = useState(false)
@@ -16,6 +16,10 @@ function ClinicsPage({ onOpenClinic, onBack }) {
     setError('')
     try {
       const result = await getClinics()
+      if (firstTime && autoOpen && result.myClinic) {
+        onOpenClinic(result.myClinic.id)
+        return
+      }
       setData(result)
       if (firstTime && !result.hasRegistration) {
         setAskRegistration(true)
@@ -147,6 +151,9 @@ function ClinicsPage({ onOpenClinic, onBack }) {
         Назад
       </button>
       <h1 className="page-title">Запись к врачу</h1>
+      {specialtyId && data !== null && (
+        <p className="card card-note specialty-hint">Выберите поликлинику — сразу покажем врачей нужной специальности</p>
+      )}
       {content}
       {askRegistration && (
         <RegistrationSheet
