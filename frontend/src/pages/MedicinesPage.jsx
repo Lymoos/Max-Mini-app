@@ -13,6 +13,7 @@ function MedicinesPage({ medicine, onPickMedicine, onClearMedicine, onOpenProfil
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState(null)
   const lastRequest = useRef(0)
 
   async function loadList() {
@@ -34,6 +35,7 @@ function MedicinesPage({ medicine, onPickMedicine, onClearMedicine, onOpenProfil
         return
       }
       setLocation(data.location)
+      setInfo(data.medicine || null)
       setItems(list || [])
     } catch (err) {
       if (requestId !== lastRequest.current) {
@@ -74,6 +76,9 @@ function MedicinesPage({ medicine, onPickMedicine, onClearMedicine, onOpenProfil
       setSearchError(err.message)
     }
   }
+
+  // из бота приходит только id — название берём из ответа сервера
+  const shown = info && medicine && info.id === medicine.id ? info : medicine
 
   let list
   if (loading) {
@@ -147,8 +152,8 @@ function MedicinesPage({ medicine, onPickMedicine, onClearMedicine, onOpenProfil
             <Icon name="pill" />
           </span>
           <div className="med-chosen-text">
-            <p className="med-chosen-name">{medicine.name}</p>
-            <p className="med-chosen-form">{medicine.form}</p>
+            <p className="med-chosen-name">{shown.name}</p>
+            <p className="med-chosen-form">{shown.form}</p>
           </div>
           <button type="button" className="address-remove" onClick={onClearMedicine} aria-label="Показать все аптеки">
             <Icon name="close" size={18} />

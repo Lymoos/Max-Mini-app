@@ -22,6 +22,7 @@ type Server struct {
 	store    *Store
 	geocoder Geocoder
 	ai       AI
+	botToken string
 	now      func() time.Time
 }
 
@@ -62,7 +63,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/guides", s.listGuides)
 	mux.HandleFunc("GET /api/guides/{id}", s.guideDetails)
 	mux.HandleFunc("PUT /api/guides/{id}/read", s.markGuide)
-	return mux
+	return s.identify(mux)
 }
 
 func userID(r *http.Request) string {

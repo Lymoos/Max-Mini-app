@@ -1,7 +1,18 @@
+// внутри MAX к каждому запросу прикладываем подписанные данные входа — по ним бэк узнаёт пользователя
+function withMaxData(options) {
+  const initData = window.WebApp && window.WebApp.initData
+  if (!initData) {
+    return options
+  }
+  const result = { ...options }
+  result.headers = { ...(options && options.headers), 'X-Max-Init-Data': initData }
+  return result
+}
+
 async function request(path, options) {
   let res
   try {
-    res = await fetch('/api' + path, options)
+    res = await fetch('/api' + path, withMaxData(options))
   } catch {
     throw new Error('Нет связи с сервером')
   }

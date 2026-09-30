@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import BottomNav from './components/BottomNav'
 import BenefitPage from './pages/BenefitPage'
 import ClinicPage from './pages/ClinicPage'
@@ -14,6 +14,7 @@ import ProfilePage from './pages/ProfilePage'
 import ShopPage from './pages/ShopPage'
 import SocialPage from './pages/SocialPage'
 import StubPage from './pages/StubPage'
+import { openLinksThroughMax, openStartScreen, startParam } from './startParam'
 
 function App() {
   const [tab, setTab] = useState('home')
@@ -27,6 +28,15 @@ function App() {
   const [guideId, setGuideId] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileVersion, setProfileVersion] = useState(0)
+
+  useEffect(() => {
+    const param = startParam()
+    if (param !== '') {
+      openStartScreen(param, { tab: openTab, feature: openFeature, medicine: openMedicine, product: openProduct, benefit: openBenefit })
+    }
+    document.addEventListener('click', openLinksThroughMax)
+    return () => document.removeEventListener('click', openLinksThroughMax)
+  }, [])
 
   function openTab(name) {
     setFeature(null)

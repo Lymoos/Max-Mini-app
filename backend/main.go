@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/joho/godotenv"
 )
@@ -72,7 +73,18 @@ func main() {
 			log.Printf("в базе нет мест вида %s — запустите `go run . import %s`", kind, kind)
 		}
 	}
-	if err := seedDemoTasks(ctx, store, defaultUserID, time.Now().Format("2006-01-02")); err != nil {
+	// задачи и напоминания живут по московскому времени, даже если сервер в UTC
+	zone := os.Getenv("APP_TIMEZONE")
+	if zone == "" {
+		zone = "Europe/Moscow"
+	}
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		log.Fatalf("неверный APP_TIMEZONE: %v", err)
+	}
+	now := func() time.Time { return time.Now().In(loc) }
+
+	if err := seedDemoTasks(ctx, store, defaultUserID, now().Format("2006-01-02")); err != nil {
 		log.Fatal(err)
 	}
 
@@ -84,9 +96,29 @@ func main() {
 	}
 
 	srv := NewServer(store, NewNominatimGeocoder("https://nominatim.openstreetmap.org"), ai)
+	srv.now = now
+
+	if token := os.Getenv("MAX_BOT_TOKEN"); token != "" {
+		api, err := NewMaxClient(token, os.Getenv("MAX_CA_FILE"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		srv.botToken = token
+		bot := &Bot{srv: srv, api: api, botName: os.Getenv("MAX_BOT_NAME")}
+		go bot.Run(ctx, api)
+		log.Print("бот MAX запущен")
+	} else {
+		log.Print("MAX_BOT_TOKEN не задан — бот выключен, вход без проверки MAX")
+	}
+	handler := srv.routes()
+	if dir := os.Getenv("STATIC_DIR"); dir != "" {
+		handler = withStatic(handler, dir)
+		log.Printf("отдаём фронт из %s", dir)
+	}
+
 	httpServer := &http.Server{
 		Addr:         ":" + port,
-		Handler:      logRequests(srv.routes()),
+		Handler:      logRequests(handler),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 20 * time.Second,
 	}

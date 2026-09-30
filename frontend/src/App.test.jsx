@@ -267,4 +267,17 @@ describe('App', () => {
     expect(within(nav).getByText('Документы').closest('button')).toHaveAttribute('aria-current', 'page')
     localStorage.removeItem('forYouOpen')
   })
+
+  it('кнопка из бота открывает миниапп сразу на лекарстве, название берётся с сервера', async () => {
+    window.WebApp = { initData: 'signed', initDataUnsafe: { start_param: 'med_ibuprofen' } }
+    const fetchMock = mockAll({})
+    render(<App />)
+
+    expect(await screen.findByText('70 ₽')).toBeInTheDocument()
+    expect(screen.getByText('Ибупрофен')).toBeInTheDocument()
+    expect(screen.getByText('таблетки 200 мг, 20 шт')).toBeInTheDocument()
+    const call = fetchMock.mock.calls.find((c) => c[0] === '/api/medicines/ibuprofen/offers')
+    expect(call[1].headers['X-Max-Init-Data']).toBe('signed')
+    delete window.WebApp
+  })
 })

@@ -13,6 +13,7 @@ function GoodsPage({ product, onPickProduct, onClearProduct, onOpenShop, onOpenP
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState(null)
   const lastRequest = useRef(0)
 
   async function loadList() {
@@ -34,6 +35,7 @@ function GoodsPage({ product, onPickProduct, onClearProduct, onOpenShop, onOpenP
         return
       }
       setLocation(data.location)
+      setInfo(data.product || null)
       setItems(list || [])
     } catch (err) {
       if (requestId !== lastRequest.current) {
@@ -74,6 +76,9 @@ function GoodsPage({ product, onPickProduct, onClearProduct, onOpenShop, onOpenP
       setSearchError(err.message)
     }
   }
+
+  // из бота приходит только id — название берём из ответа сервера
+  const shown = info && product && info.id === product.id ? info : product
 
   let list
   if (loading) {
@@ -149,8 +154,8 @@ function GoodsPage({ product, onPickProduct, onClearProduct, onOpenShop, onOpenP
             <Icon name="cart" />
           </span>
           <div className="med-chosen-text">
-            <p className="med-chosen-name">{product.name}</p>
-            <p className="med-chosen-form">{product.unit}</p>
+            <p className="med-chosen-name">{shown.name}</p>
+            <p className="med-chosen-form">{shown.unit}</p>
           </div>
           <button type="button" className="address-remove" onClick={onClearProduct} aria-label="Показать все магазины">
             <Icon name="close" size={18} />
