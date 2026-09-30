@@ -100,6 +100,7 @@ func main() {
 	}
 
 	srv := NewServer(store, NewNominatimGeocoder("https://nominatim.openstreetmap.org"), ai)
+	srv.readers = recipeReaders(os.Getenv("YANDEX_API_KEY"), os.Getenv("YANDEX_FOLDER_ID"))
 	srv.now = now
 
 	if token := os.Getenv("MAX_BOT_TOKEN"); token != "" {

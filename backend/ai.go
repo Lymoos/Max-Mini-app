@@ -45,7 +45,7 @@ func (y *YandexGPT) Complete(ctx context.Context, system, user string) (string, 
 		"completionOptions": map[string]any{
 			"stream":      false,
 			"temperature": 0.1,
-			"maxTokens":   200,
+			"maxTokens":   400,
 		},
 		"messages": []gptMessage{
 			{Role: "system", Text: system},

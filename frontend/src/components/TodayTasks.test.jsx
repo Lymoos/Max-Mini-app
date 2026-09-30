@@ -35,7 +35,7 @@ describe('TodayTasks', () => {
     mockFetch({ 'GET /api/tasks/today': () => jsonResponse(demoTasks) })
     render(<TodayTasks />)
 
-    expect(screen.getByText('Загрузка…')).toBeInTheDocument()
+    expect(screen.getByLabelText('Загрузка задач')).toBeInTheDocument()
     expect(await screen.findByText('Выпить таблетку')).toBeInTheDocument()
     expect(screen.getByText('08:00')).toBeInTheDocument()
     expect(screen.queryByText('Приём у врача')).not.toBeInTheDocument()
@@ -179,5 +179,59 @@ describe('TodayTasks', () => {
     expect(dialog).not.toBeInTheDocument()
     const titles = screen.getAllByText(/Выпить таблетку|Прогулка|Обед/).map((el) => el.textContent)
     expect(titles).toEqual(['Выпить таблетку', 'Прогулка', 'Обед'])
+  })
+
+  it('задача со списком раскрывается, пункты отмечаются, «Где купить» ведёт к ценам', async () => {
+    const user = userEvent.setup()
+    const task = {
+      id: 7,
+      time: '10:00',
+      title: 'Купить в аптеке',
+      kind: 'medicine',
+      done: false,
+      note: 'Возьмите рецепт с собой',
+      items: [
+        { id: 1, title: 'Лизиноприл, 10 мг', medicineId: 'lizinopril', done: false },
+        { id: 2, title: 'Тромбопол', medicineId: '', done: true },
+      ],
+    }
+    let failNext = false
+    const fetchMock = mockFetch({
+      'GET /api/tasks/today': () => jsonResponse({ date: '2026-09-30', tasks: [task] }),
+      'PATCH /api/tasks/7/items/1': () => (failNext ? jsonResponse({ error: 'нет' }, 500) : jsonResponse({ id: 1, done: true })),
+    })
+    const onOpenMedicine = vi.fn()
+    render(<TodayTasks onOpenMedicine={onOpenMedicine} />)
+
+    expect(await screen.findByText('10:00 · отмечено 1 из 2')).toBeInTheDocument()
+    expect(screen.queryByText('Возьмите рецепт с собой')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^Купить в аптеке/ }))
+    expect(screen.getByRole('button', { name: /^Купить в аптеке/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Возьмите рецепт с собой')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Лизиноприл, 10 мг' }))
+    expect(screen.getByRole('button', { name: 'Лизиноприл, 10 мг' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('10:00 · отмечено 2 из 2')).toBeInTheDocument()
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ done: true })
+
+    failNext = true
+    await user.click(screen.getByRole('button', { name: 'Лизиноприл, 10 мг' }))
+    expect(await screen.findByText('Не удалось сохранить. Попробуйте ещё раз')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Лизиноприл, 10 мг' })).toHaveAttribute('aria-pressed', 'true')
+
+    expect(screen.getAllByRole('button', { name: 'Где купить' })).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: 'Где купить' }))
+    expect(onOpenMedicine).toHaveBeenCalledWith({ id: 'lizinopril', name: '', form: '' })
+
+    await user.click(screen.getByRole('button', { name: /^Купить в аптеке/ }))
+    expect(screen.queryByText('Возьмите рецепт с собой')).not.toBeInTheDocument()
+  })
+
+  it('простая задача не раскрывается', async () => {
+    mockFetch({ 'GET /api/tasks/today': () => jsonResponse(demoTasks) })
+    render(<TodayTasks />)
+    await screen.findByText('Выпить таблетку')
+    expect(screen.queryByText('Подробнее')).not.toBeInTheDocument()
   })
 })

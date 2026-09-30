@@ -11,11 +11,21 @@ import (
 var ErrNotFound = errors.New("not found")
 
 type Task struct {
-	ID    int    `json:"id"`
-	Time  string `json:"time"`
-	Title string `json:"title"`
-	Kind  string `json:"kind"`
-	Done  bool   `json:"done"`
+	ID    int        `json:"id"`
+	Time  string     `json:"time"`
+	Title string     `json:"title"`
+	Kind  string     `json:"kind"`
+	Done  bool       `json:"done"`
+	Note  string     `json:"note"`
+	Items []TaskItem `json:"items"`
+}
+
+// пункт внутри задачи. MedicineID заполнен, если это лекарство из справочника — тогда можно найти цены
+type TaskItem struct {
+	ID         int    `json:"id"`
+	Title      string `json:"title"`
+	MedicineID string `json:"medicineId"`
+	Done       bool   `json:"done"`
 }
 
 type Store struct {
@@ -27,16 +37,37 @@ func NewStore(db *pgxpool.Pool) *Store {
 }
 
 func (s *Store) AddTask(ctx context.Context, userID, date string, t Task) (Task, error) {
-	err := s.db.QueryRow(ctx,
-		`INSERT INTO tasks (user_id, date, time, title, kind) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-		userID, date, t.Time, t.Title, t.Kind,
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return Task{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	err = tx.QueryRow(ctx,
+		`INSERT INTO tasks (user_id, date, time, title, kind, note) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+		userID, date, t.Time, t.Title, t.Kind, t.Note,
 	).Scan(&t.ID)
-	return t, err
+	if err != nil {
+		return Task{}, err
+	}
+	items := []TaskItem{}
+	for _, item := range t.Items {
+		err := tx.QueryRow(ctx,
+			`INSERT INTO task_items (task_id, title, medicine_id) VALUES ($1, $2, $3) RETURNING id`,
+			t.ID, item.Title, item.MedicineID,
+		).Scan(&item.ID)
+		if err != nil {
+			return Task{}, err
+		}
+		items = append(items, item)
+	}
+	t.Items = items
+	return t, tx.Commit(ctx)
 }
 
 func (s *Store) TasksByDate(ctx context.Context, userID, date string) ([]Task, error) {
 	rows, err := s.db.Query(ctx,
-		`SELECT id, time, title, kind, done FROM tasks WHERE user_id = $1 AND date = $2 ORDER BY time, id`,
+		`SELECT id, time, title, kind, done, note FROM tasks WHERE user_id = $1 AND date = $2 ORDER BY time, id`,
 		userID, date,
 	)
 	if err != nil {
@@ -45,14 +76,55 @@ func (s *Store) TasksByDate(ctx context.Context, userID, date string) ([]Task, e
 	defer rows.Close()
 
 	tasks := []Task{}
+	ids := []int{}
 	for rows.Next() {
-		var t Task
-		if err := rows.Scan(&t.ID, &t.Time, &t.Title, &t.Kind, &t.Done); err != nil {
+		t := Task{Items: []TaskItem{}}
+		if err := rows.Scan(&t.ID, &t.Time, &t.Title, &t.Kind, &t.Done, &t.Note); err != nil {
 			return nil, err
 		}
 		tasks = append(tasks, t)
+		ids = append(ids, t.ID)
 	}
-	return tasks, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	items, err := s.db.Query(ctx,
+		`SELECT task_id, id, title, medicine_id, done FROM task_items WHERE task_id = ANY($1) ORDER BY id`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer items.Close()
+	byTask := map[int][]TaskItem{}
+	for items.Next() {
+		var taskID int
+		var item TaskItem
+		if err := items.Scan(&taskID, &item.ID, &item.Title, &item.MedicineID, &item.Done); err != nil {
+			return nil, err
+		}
+		byTask[taskID] = append(byTask[taskID], item)
+	}
+	for i := range tasks {
+		if list, ok := byTask[tasks[i].ID]; ok {
+			tasks[i].Items = list
+		}
+	}
+	return tasks, items.Err()
+}
+
+// пункт отмечает только хозяин задачи
+func (s *Store) SetItemDone(ctx context.Context, userID string, taskID, itemID int, done bool) (TaskItem, error) {
+	var item TaskItem
+	err := s.db.QueryRow(ctx,
+		`UPDATE task_items i SET done = $4 FROM tasks t
+		 WHERE i.id = $3 AND i.task_id = $2 AND t.id = i.task_id AND t.user_id = $1
+		 RETURNING i.id, i.title, i.medicine_id, i.done`,
+		userID, taskID, itemID, done,
+	).Scan(&item.ID, &item.Title, &item.MedicineID, &item.Done)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TaskItem{}, ErrNotFound
+	}
+	return item, err
 }
 
 func (s *Store) CountTasks(ctx context.Context, userID, date string) (int, error) {

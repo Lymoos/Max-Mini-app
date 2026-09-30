@@ -50,6 +50,21 @@ export function setTaskDone(id, done) {
   })
 }
 
+export function setTaskItemDone(taskId, itemId, done) {
+  return request('/tasks/' + taskId + '/items/' + itemId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ done: done }),
+  })
+}
+
+// фото отправляем формой, тип файла браузер подставит сам
+export function readRecipe(file) {
+  const form = new FormData()
+  form.append('photo', file)
+  return request('/recipe', { method: 'POST', body: form })
+}
+
 export function getFeatures() {
   return request('/features')
 }

@@ -2517,6 +2517,337 @@ button:focus-visible {
   font-size: 15px;
 }
 
+/* рецепт по фото */
+
+.photo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 52px;
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+.file-input {
+  display: none;
+}
+
+.recipe-reading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0 24px;
+  text-align: center;
+}
+
+.recipe-scan {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  margin-bottom: 8px;
+  border-radius: 24px;
+  background: #e8effc;
+  color: var(--primary);
+}
+
+.recipe-scan::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--primary);
+  box-shadow: 0 0 12px rgba(13, 76, 211, 0.6);
+  animation: scan 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes scan {
+  from {
+    transform: translateY(14px);
+  }
+  to {
+    transform: translateY(80px);
+  }
+}
+
+.recipe-reading-title {
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.recipe-hint {
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.recipe-empty {
+  padding: 4px 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.recipe-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 60px;
+  padding: 10px 14px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.recipe-item input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.recipe-item .task-circle {
+  flex-shrink: 0;
+}
+
+.recipe-item-on {
+  border-color: #b9ccf3;
+  background: #f3f7ff;
+}
+
+.recipe-item-on .task-circle {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.recipe-item:has(input:focus-visible) {
+  outline: 2px solid rgba(13, 76, 211, 0.35);
+}
+
+.recipe-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.recipe-item-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.recipe-item-dose {
+  font-size: 15px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.field-textarea-small {
+  height: 76px;
+}
+
+.recipe-time {
+  margin-top: 12px;
+}
+
+.recipe-buttons {
+  flex-wrap: wrap;
+}
+
+.recipe-buttons .btn-primary {
+  flex: 2 1 200px;
+  padding: 0 12px;
+}
+
+.recipe-buttons .btn-secondary {
+  flex: 1 1 90px;
+}
+
+/* задача с описанием и списком */
+
+.task {
+  flex-wrap: wrap;
+}
+
+.task-open {
+  text-align: left;
+}
+
+.task-more {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--primary);
+}
+
+.task-arrow {
+  display: flex;
+  transition: transform 0.2s ease;
+}
+
+.task-arrow-open {
+  transform: rotate(180deg);
+}
+
+.task-details {
+  width: 100%;
+  padding: 4px 8px 6px 0;
+  animation: appear 0.25s ease backwards;
+}
+
+.task-note {
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.subtask-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subtask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 8px;
+  border-top: 1px solid var(--border);
+}
+
+.subtask:first-child {
+  border-top: none;
+}
+
+.subtask-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 180px;
+  min-width: 0;
+  min-height: 52px;
+  text-align: left;
+}
+
+.subtask-check .task-circle {
+  flex-shrink: 0;
+}
+
+.subtask-title {
+  overflow-wrap: anywhere;
+}
+
+.subtask-done .task-circle {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.subtask-done .subtask-title {
+  color: var(--text-light);
+  text-decoration: line-through;
+}
+
+.subtask-prices {
+  margin: 0;
+  padding: 8px 4px;
+  font-size: 15px;
+}
+
+/* загрузка главной: серые силуэты тех же размеров, по которым проходит блик */
+
+.skeleton {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e9edf2 0%, #f6f8fa 40%, #e9edf2 80%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+.skeleton-row {
+  pointer-events: none;
+}
+
+.skeleton-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 12px;
+}
+
+.skeleton-circle {
+  width: 28px;
+  height: 28px;
+  margin: 0 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.skeleton-line {
+  height: 16px;
+  margin: 3px 0;
+}
+
+.skeleton-line-1 {
+  width: 75%;
+}
+
+.skeleton-line-2 {
+  width: 60%;
+}
+
+.skeleton-line-3 {
+  width: 85%;
+}
+
+.skeleton-line-short {
+  width: 30%;
+}
+
+.skeleton-tile {
+  background: var(--surface);
+  pointer-events: none;
+}
+
+.skeleton-tile-icon {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+}
+
 /* плавные появления и нажатия. Двигаем только opacity и transform, чтобы вёрстка не прыгала.
    backwards, а не both: после анимации transform не держится и не мешает :active */
 
@@ -2588,6 +2919,7 @@ main > * {
 .chip,
 .chip-btn,
 .link-btn,
+.photo-btn,
 .back-btn,
 .nav-item,
 .add-btn,
@@ -2601,6 +2933,7 @@ main > * {
 .chip:active,
 .chip-btn:active:not(:disabled),
 .link-btn:active,
+.photo-btn:active,
 .back-btn:active,
 .nav-item:active,
 .add-btn:active,
@@ -2617,5 +2950,10 @@ main > * {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-delay: 0s !important;
+  }
+
+  .skeleton,
+  .recipe-scan::after {
+    animation: none !important;
   }
 }

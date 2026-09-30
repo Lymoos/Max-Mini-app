@@ -189,6 +189,15 @@ function IconPaths({ name }) {
           <path d="M8.5 16.4a5 5 0 0 1 7 0" />
         </>
       )
+    case 'camera':
+      return (
+        <>
+          <path d="M14.5 4h-5L7.5 6.5H5a2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2h-2.5z" />
+          <circle cx="12" cy="13" r="3.5" />
+        </>
+      )
+    case 'down':
+      return <path d="m6 9 6 6 6-6" />
     case 'image':
       return (
         <>

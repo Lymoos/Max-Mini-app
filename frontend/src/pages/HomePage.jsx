@@ -41,7 +41,7 @@ function HomePage({
     <>
       <AskBox onAnswer={handleAnswer} onOpenProfile={onOpenProfile} onTaskAdded={() => setTasksVersion((v) => v + 1)} />
       <div className="page">
-        <TodayTasks key={tasksVersion} />
+        <TodayTasks key={tasksVersion} onOpenMedicine={onOpenMedicine} />
         <ForYou onOpenShop={onOpenShop} onOpenBenefit={onOpenBenefit} />
         <Features onOpen={onOpenFeature} />
       </div>
