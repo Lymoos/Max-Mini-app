@@ -31,6 +31,10 @@ func main() {
 		log.Fatal("не задан DATABASE_URL, см. .env.example")
 	}
 
+	if u := os.Getenv("OVERPASS_URL"); u != "" {
+		overpassURL = u
+	}
+
 	ctx := context.Background()
 	pool, err := connectDB(ctx, dbURL)
 	if err != nil {
