@@ -25,7 +25,7 @@ func testStore(t *testing.T) *Store {
 	if err := migrate(ctx, pool); err != nil {
 		t.Fatal(err)
 	}
-	_, err = pool.Exec(ctx, `TRUNCATE tasks, profiles, places, medicine_prices, product_prices, doctors, ai_cache, user_benefits, user_guides, bot_users RESTART IDENTITY CASCADE`)
+	_, err = pool.Exec(ctx, `TRUNCATE tasks, task_items, profiles, places, medicine_prices, product_prices, doctors, ai_cache, user_benefits, user_guides, bot_users RESTART IDENTITY CASCADE`)
 	if err != nil {
 		t.Fatal(err)
 	}

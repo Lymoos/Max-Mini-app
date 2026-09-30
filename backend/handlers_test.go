@@ -400,3 +400,74 @@ func TestWrongMethodAndPath(t *testing.T) {
 func itoa(n int64) string {
 	return strconv.FormatInt(n, 10)
 }
+
+func TestTaskWithNoteAndItems(t *testing.T) {
+	srv, _ := newTestServer(t)
+	anna := map[string]string{"X-User-Id": "anna"}
+	body := `{"title": "Купить в аптеке", "time": "10:00", "kind": "medicine", "note": "По рецепту от 30 сентября",
+		"items": [{"title": "Лизиноприл", "medicineId": "lizinopril"}, {"title": "Тромбопол", "medicineId": ""}, {"title": "  "}]}`
+	rec := doRequest(srv, "POST", "/api/tasks", body, anna)
+	var task Task
+	json.Unmarshal(rec.Body.Bytes(), &task)
+	if rec.Code != http.StatusCreated || task.Note != "По рецепту от 30 сентября" || len(task.Items) != 2 || task.Items[0].ID == 0 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+
+	list := doRequest(srv, "GET", "/api/tasks/today", "", anna)
+	var today struct {
+		Tasks []Task `json:"tasks"`
+	}
+	json.Unmarshal(list.Body.Bytes(), &today)
+	if len(today.Tasks) != 1 || len(today.Tasks[0].Items) != 2 || today.Tasks[0].Items[1].Title != "Тромбопол" {
+		t.Fatalf("%s", list.Body.String())
+	}
+
+	itemURL := "/api/tasks/" + itoa(int64(task.ID)) + "/items/" + itoa(int64(task.Items[0].ID))
+	if rec := doRequest(srv, "PATCH", itemURL, `{"done": true}`, anna); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"done":true`) {
+		t.Errorf("%d %s", rec.Code, rec.Body.String())
+	}
+	if rec := doRequest(srv, "PATCH", itemURL, `{"done": true}`, map[string]string{"X-User-Id": "boris"}); rec.Code != http.StatusNotFound {
+		t.Errorf("чужой пункт отмечать нельзя: %d", rec.Code)
+	}
+	otherTask := "/api/tasks/99999/items/" + itoa(int64(task.Items[0].ID))
+	if rec := doRequest(srv, "PATCH", otherTask, `{"done": true}`, anna); rec.Code != http.StatusNotFound {
+		t.Errorf("пункт из другой задачи: %d", rec.Code)
+	}
+	for _, bad := range []string{`{}`, `{"done": "да"}`} {
+		if rec := doRequest(srv, "PATCH", itemURL, bad, anna); rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: %d", bad, rec.Code)
+		}
+	}
+	if rec := doRequest(srv, "PATCH", "/api/tasks/x/items/1", `{"done": true}`, anna); rec.Code != http.StatusBadRequest {
+		t.Errorf("%d", rec.Code)
+	}
+
+	json.Unmarshal(doRequest(srv, "GET", "/api/tasks/today", "", anna).Body.Bytes(), &today)
+	if !today.Tasks[0].Items[0].Done || today.Tasks[0].Items[1].Done {
+		t.Errorf("%+v", today.Tasks[0].Items)
+	}
+}
+
+func TestTaskItemsValidation(t *testing.T) {
+	srv, _ := newTestServer(t)
+	many := []string{}
+	for i := 0; i < maxTaskItems+1; i++ {
+		many = append(many, `{"title": "x"}`)
+	}
+	cases := map[string]string{
+		"длинное описание": `{"title": "a", "time": "10:00", "note": "` + strings.Repeat("я", maxNoteLen+1) + `"}`,
+		"много пунктов":    `{"title": "a", "time": "10:00", "items": [` + strings.Join(many, ",") + `]}`,
+		"длинный пункт":    `{"title": "a", "time": "10:00", "items": [{"title": "` + strings.Repeat("я", maxTitleLen+1) + `"}]}`,
+		"чужое лекарство":  `{"title": "a", "time": "10:00", "items": [{"title": "x", "medicineId": "nope"}]}`,
+	}
+	for name, body := range cases {
+		if rec := doRequest(srv, "POST", "/api/tasks", body, nil); rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: %d %s", name, rec.Code, rec.Body.String())
+		}
+	}
+
+	rec := doRequest(srv, "POST", "/api/tasks", `{"title": "Позвонить", "time": "10:00"}`, nil)
+	if !strings.Contains(rec.Body.String(), `"items":[]`) || !strings.Contains(rec.Body.String(), `"note":""`) {
+		t.Errorf("у простой задачи пустой список, а не null: %s", rec.Body.String())
+	}
+}

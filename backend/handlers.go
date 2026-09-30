@@ -15,6 +15,8 @@ const (
 	defaultUserID = "demo"
 	maxAskLength  = 500
 	maxTitleLen   = 200
+	maxNoteLen    = 1000
+	maxTaskItems  = 30
 	maxBodySize   = 1 << 20
 )
 
@@ -36,6 +38,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/tasks/today", s.todayTasks)
 	mux.HandleFunc("POST /api/tasks", s.createTask)
 	mux.HandleFunc("PATCH /api/tasks/{id}", s.updateTask)
+	mux.HandleFunc("PATCH /api/tasks/{id}/items/{itemId}", s.updateTaskItem)
 	mux.HandleFunc("GET /api/features", s.listFeatures)
 	mux.HandleFunc("POST /api/ask", s.ask)
 	mux.HandleFunc("GET /api/profile", s.getProfile)
@@ -126,6 +129,11 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		Time  string `json:"time"`
 		Kind  string `json:"kind"`
 		Date  string `json:"date"`
+		Note  string `json:"note"`
+		Items []struct {
+			Title      string `json:"title"`
+			MedicineID string `json:"medicineId"`
+		} `json:"items"`
 	}
 	if err := decodeBody(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "Неверный формат запроса")
@@ -169,7 +177,33 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		date = body.Date
 	}
 
-	task, err := s.store.AddTask(r.Context(), userID(r), date, Task{Time: t.Format("15:04"), Title: title, Kind: kind})
+	note := strings.TrimSpace(body.Note)
+	if utf8.RuneCountInString(note) > maxNoteLen {
+		writeError(w, http.StatusBadRequest, "Слишком длинное описание")
+		return
+	}
+	if len(body.Items) > maxTaskItems {
+		writeError(w, http.StatusBadRequest, "В списке слишком много пунктов")
+		return
+	}
+	items := []TaskItem{}
+	for _, item := range body.Items {
+		itemTitle := strings.TrimSpace(item.Title)
+		if itemTitle == "" {
+			continue
+		}
+		if utf8.RuneCountInString(itemTitle) > maxTitleLen {
+			writeError(w, http.StatusBadRequest, "Слишком длинный пункт списка")
+			return
+		}
+		if _, ok := findMedicine(item.MedicineID); item.MedicineID != "" && !ok {
+			writeError(w, http.StatusBadRequest, "Неизвестное лекарство в списке")
+			return
+		}
+		items = append(items, TaskItem{Title: itemTitle, MedicineID: item.MedicineID})
+	}
+
+	task, err := s.store.AddTask(r.Context(), userID(r), date, Task{Time: t.Format("15:04"), Title: title, Kind: kind, Note: note, Items: items})
 	if err != nil {
 		serverError(w, r, err)
 		return
@@ -202,6 +236,34 @@ func (s *Server) updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, task)
+}
+
+func (s *Server) updateTaskItem(w http.ResponseWriter, r *http.Request) {
+	taskID, err1 := strconv.Atoi(r.PathValue("id"))
+	itemID, err2 := strconv.Atoi(r.PathValue("itemId"))
+	if err1 != nil || err2 != nil || taskID <= 0 || itemID <= 0 {
+		writeError(w, http.StatusBadRequest, "Неверный id")
+		return
+	}
+
+	var body struct {
+		Done *bool `json:"done"`
+	}
+	if err := decodeBody(w, r, &body); err != nil || body.Done == nil {
+		writeError(w, http.StatusBadRequest, "Ожидается {\"done\": true или false}")
+		return
+	}
+
+	item, err := s.store.SetItemDone(r.Context(), userID(r), taskID, itemID, *body.Done)
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Пункт не найден")
+		return
+	}
+	if err != nil {
+		serverError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
 }
 
 func (s *Server) listFeatures(w http.ResponseWriter, r *http.Request) {
