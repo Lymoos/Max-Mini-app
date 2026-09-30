@@ -129,7 +129,7 @@ func parseTaskDate(text string, now time.Time) (time.Time, bool, string) {
 
 func taskKind(title string) string {
 	switch {
-	case containsAny(title, "таблет", "лекарств", "капл", "укол", "витамин", "давлен", "сахар", "лекарств"):
+	case containsAny(title, "таблет", "лекарств", "капл", "укол", "витамин", "давлен", "сахар"):
 		return "medicine"
 	case containsAny(title, "врач", "поликлиник", "анализ", "прием", "приём", "доктор"):
 		return "doctor"
