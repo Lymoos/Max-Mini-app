@@ -16,7 +16,9 @@ func TestSuggestMedicines(t *testing.T) {
 		{"нурафен", "ibuprofen", true},
 		{"но-шпа", "drotaverin", false},
 		{"НО ШПА", "drotaverin", false},
-		{"витамин д", "vitamin-d3", true},
+		{"витамин д", "vitamin-d3", false},
+		{"витамин d", "vitamin-d3", false},
+		{"витамен д3", "vitamin-d3", true},
 		{"кардиамагнил", "cardiomagnil", true},
 		{"глюкофаж", "metformin", false},
 	}

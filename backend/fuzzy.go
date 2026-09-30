@@ -103,6 +103,18 @@ func maxTypos(length int) int {
 	}
 }
 
+// во фразе слов много, поэтому ошибок прощаем меньше, чем в подсказках: иначе «привет» станет «Париет»
+func textTypos(length int) int {
+	switch {
+	case length <= 5:
+		return 0
+	case length <= 8:
+		return 1
+	default:
+		return 2
+	}
+}
+
 // сравниваем запрос с началом названия, чтобы подсказки работали во время набора
 func prefixDistance(query, name []rune) int {
 	if len(query) <= len(name) && string(name[:len(query)]) == string(query) {
@@ -182,10 +194,7 @@ func findInText(items []CatalogItem, text string) (CatalogItem, bool) {
 				if len(word) > len(n) && len(word)-len(n) <= 3 {
 					d = min(d, levenshtein(word[:len(n)], n))
 				}
-				allowed := maxTypos(len(n))
-				if len(n) <= 5 {
-					allowed = 0
-				}
+				allowed := textTypos(len(n))
 				if d <= allowed && (bestDist == -1 || d < bestDist) {
 					bestDist = d
 					best = item
