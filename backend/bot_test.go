@@ -162,7 +162,7 @@ func TestBotOtherReplies(t *testing.T) {
 	}{
 		{"нужна соцзащита", "тел. +7 495 123-45-67", "social"},
 		{"записаться к врачу", "поликлинику по прописке", "doctor"},
-		{"где мой паспорт", "Документы", "documents"},
+		{"где мой паспорт", "документы и льготы", "documents"},
 		{"расскажи анекдот", "Пока не понял", ""},
 		{"молоко", "рядом не нашёл", "prod_milk"},
 	}
@@ -177,10 +177,88 @@ func TestBotOtherReplies(t *testing.T) {
 		}
 	}
 
-	bot.srv.ai = &fakeAI{answer: `{"type": "medicine", "target": "Парацетамол"}`}
-	bot.Handle(context.Background(), textUpdate(555, "что выпить от температуры"))
-	if last := sender.sent[len(sender.sent)-1].Msg; !strings.Contains(last.Text, "Парацетамол") {
-		t.Errorf("непонятное уходит в ИИ: %s", last.Text)
+	bot.srv.ai = &fakeAI{answer: `{"type": "doctor", "target": "neurologist"}`}
+	bot.Handle(context.Background(), textUpdate(555, "голова кружится по утрам"))
+	last := sender.sent[len(sender.sent)-1].Msg
+	if app, _ := findButton(last, "open_app"); !strings.Contains(last.Text, "неврологу") || app.Payload != "doctor_neurologist" {
+		t.Errorf("непонятное уходит в ИИ: %s %+v", last.Text, app)
+	}
+}
+
+func TestBotNewActions(t *testing.T) {
+	bot, sender, _ := newTestBot(t)
+	cases := []struct {
+		text, want, button, payload string
+	}{
+		{"нужен кардиолог", "к кардиологу", "Записаться к кардиологу", "doctor_cardiologist"},
+		{"хочу к врачу по давлению", "к кардиологу", "Записаться к кардиологу", "doctor_cardiologist"},
+		{"глазник", "к офтальмологу", "Записаться к офтальмологу", "doctor_ophthalmologist"},
+		{"компенсация за капремонт", "Компенсация за капремонт", "Как оформить", "benefit_overhaul"},
+		{"как увеличить шрифт", "Как сделать буквы крупнее", "Открыть инструкцию", "guide_font"},
+		{"поменять адрес", "профиль", "Открыть профиль", "profile"},
+		{"что выпить от давления", "врач", "Открыть лекарства", "medicines"},
+		{"купить лекарство", "название лекарства", "Искать лекарство", "medicines"},
+	}
+	for i, c := range cases {
+		bot.Handle(context.Background(), textUpdate(555, c.text))
+		msg := sender.sent[i].Msg
+		app, _ := findButton(msg, "open_app")
+		if !strings.Contains(msg.Text, c.want) || app.Text != c.button || app.Payload != c.payload {
+			t.Errorf("%q: %s %+v", c.text, msg.Text, app)
+		}
+	}
+}
+
+func callbackUpdate(userID int64, payload string) maxUpdate {
+	cb := maxUpdate{UpdateType: "message_callback"}
+	data, _ := json.Marshal(map[string]any{"callback": map[string]any{"callback_id": "c1", "payload": payload, "user": map[string]any{"user_id": userID}}})
+	json.Unmarshal(data, &cb)
+	cb.UpdateType = "message_callback"
+	return cb
+}
+
+func TestBotTaskNeedsConfirmation(t *testing.T) {
+	bot, sender, store := newTestBot(t)
+	bot.srv.now = func() time.Time { return askNow }
+	ctx := context.Background()
+
+	bot.Handle(ctx, textUpdate(555, "напомни выпить таблетку в 9"))
+	msg := sender.sent[0].Msg
+	if !strings.Contains(msg.Text, "«Выпить таблетку» на сегодня в 09:00") {
+		t.Errorf("%s", msg.Text)
+	}
+	tasks, _ := store.TasksByDate(ctx, "555", "2026-09-30")
+	if len(tasks) != 0 {
+		t.Fatal("без подтверждения задачу не создаём")
+	}
+	add, ok := findButton(msg, "callback")
+	if !ok || add.Text != "Добавить" {
+		t.Fatalf("нужна кнопка «Добавить»: %+v", buttons(msg))
+	}
+
+	bot.Handle(ctx, callbackUpdate(555, add.Payload))
+	tasks, _ = store.TasksByDate(ctx, "555", "2026-09-30")
+	if len(tasks) != 1 || tasks[0].Title != "Выпить таблетку" || tasks[0].Time != "09:00" || tasks[0].Kind != "medicine" {
+		t.Fatalf("%+v", tasks)
+	}
+	if sender.answers[0] != "Добавил: Выпить таблетку, сегодня в 09:00" {
+		t.Errorf("%q", sender.answers[0])
+	}
+
+	bot.Handle(ctx, textUpdate(555, "напомни полить цветы"))
+	if last := sender.sent[len(sender.sent)-1].Msg; !strings.Contains(last.Text, "Во сколько напомнить") || len(buttons(last)) != 0 {
+		t.Errorf("без времени спрашиваем время: %+v", last)
+	}
+
+	for _, payload := range []string{"addtask:2026-09-30 09:00 medicine", "addtask:2026-09-30 9 утра medicine x", "addtask:2026-09-30 09:00 taxi x", "addtask:2020-01-01 09:00 other x"} {
+		bot.Handle(ctx, callbackUpdate(555, payload))
+	}
+	want := []string{"Не понял кнопку", "Не понял кнопку", "Не понял кнопку", "Эта дата уже прошла"}
+	got := sender.answers[len(sender.answers)-4:]
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("ответ %d: %q, ожидали %q", i, got[i], want[i])
+		}
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 type fakeAI struct {
@@ -80,9 +81,11 @@ func TestParseIntent(t *testing.T) {
 		want   aiIntent
 		ok     bool
 	}{
-		{`{"type": "medicine", "target": "Ибупрофен"}`, aiIntent{"medicine", "Ибупрофен"}, true},
-		{"```json\n{\"type\": \"tab\", \"target\": \"help\"}\n```", aiIntent{"tab", "help"}, true},
+		{`{"type": "medicine", "target": "Ибупрофен"}`, aiIntent{Type: "medicine", Target: "Ибупрофен"}, true},
+		{"```json\n{\"type\": \"tab\", \"target\": \"help\"}\n```", aiIntent{Type: "tab", Target: "help"}, true},
 		{"```\n{\"type\": \"unknown\"}\n```", aiIntent{Type: "unknown"}, true},
+		{`{"type": "task", "title": "Выпить таблетку", "time": "09:00", "date": "2026-10-01"}`,
+			aiIntent{Type: "task", Title: "Выпить таблетку", Time: "09:00", Date: "2026-10-01"}, true},
 		{`не знаю`, aiIntent{}, false},
 	}
 	for _, tt := range tests {
@@ -156,13 +159,24 @@ func TestAIAnswer(t *testing.T) {
 		wantType   string
 		wantTarget string
 	}{
-		{`{"type": "medicine", "target": "Ибупрофен"}`, "medicine", "ibuprofen"},
 		{`{"type": "product", "target": "Гречка"}`, "product", "buckwheat"},
-		{`{"type": "feature", "target": "social"}`, "feature", "social"},
-		{`{"type": "feature", "target": "taxi"}`, "", ""},
-		{`{"type": "tab", "target": "documents"}`, "tab", "documents"},
-		{`{"type": "tab", "target": "settings"}`, "", ""},
-		{`{"type": "medicine", "target": "Выдуманное"}`, "", ""},
+		{`{"type": "product", "target": "buckwheat"}`, "product", "buckwheat"},
+		{`{"type": "product", "target": "Космолёт"}`, "", ""},
+		{`{"type": "pharmacy"}`, "feature", "pharmacy"},
+		{`{"type": "shops"}`, "feature", "goods"},
+		{`{"type": "social"}`, "feature", "social"},
+		{`{"type": "taxi"}`, "", ""},
+		{`{"type": "doctor", "target": "neurologist"}`, "doctor", "neurologist"},
+		{`{"type": "doctor", "target": ""}`, "doctor", ""},
+		{`{"type": "doctor", "target": "экстрасенс"}`, "", ""},
+		{`{"type": "benefit", "target": "overhaul"}`, "benefit", "overhaul"},
+		{`{"type": "benefit", "target": "free-car"}`, "", ""},
+		{`{"type": "guide", "target": "font"}`, "guide", "font"},
+		{`{"type": "guide", "target": "hack-bank"}`, "", ""},
+		{`{"type": "documents"}`, "tab", "documents"},
+		{`{"type": "settings"}`, "", ""},
+		{`{"type": "profile"}`, "profile", ""},
+		{`{"type": "treatment"}`, "tab", "medicines"},
 		{`{"type": "unknown"}`, "", ""},
 		{`мусор`, "", ""},
 	}
@@ -180,10 +194,79 @@ func TestAIAnswer(t *testing.T) {
 			if !ok || got.Type != tt.wantType || got.Target != tt.wantTarget || got.Message == "" {
 				t.Errorf("получили %+v %v", got, ok)
 			}
-			if tt.wantType == "medicine" && got.Medicine == nil || tt.wantType == "product" && got.Product == nil {
-				t.Error("нет объекта лекарства или товара")
+			if tt.wantType == "product" && got.Product == nil {
+				t.Error("нет объекта товара")
 			}
 		})
+	}
+}
+
+// ИИ назвал препарат, которого человек не называл, — это назначение лечения, не пропускаем
+func TestAIDoesNotPrescribe(t *testing.T) {
+	tests := []struct {
+		text     string
+		answer   string
+		wantType string
+	}{
+		{"что выпить чтобы сердце не болело", `{"type": "medicine", "target": "Валидол"}`, "tab"},
+		{"давление 160 что делать", `{"type": "medicine", "target": "Каптоприл"}`, "tab"},
+		{"голова раскалывается", `{"type": "medicine", "target": "Цитрамон"}`, "tab"},
+		{"нужен этот цитромон", `{"type": "medicine", "target": "Цитрамон"}`, "medicine"},
+		{"есть ли каптоприл", `{"type": "medicine", "target": "captopril"}`, "tab"},
+		{"хочу капотен", `{"type": "medicine", "target": "kaptopril"}`, "medicine"},
+		{"что-нибудь посильнее", `{"type": "medicine", "target": "Выдуманное"}`, "tab"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			srv := NewServer(testStore(t), &fakeGeocoder{}, &fakeAI{answer: tt.answer})
+			got, ok := srv.aiAnswer(context.Background(), tt.text)
+			if !ok || got.Type != tt.wantType {
+				t.Fatalf("получили %+v %v", got, ok)
+			}
+			if tt.wantType == "tab" && (got.Medicine != nil || got.Target != "medicines" || !strings.Contains(got.Message, "врач")) {
+				t.Errorf("нужен раздел лекарств и совет обратиться к врачу: %+v", got)
+			}
+		})
+	}
+}
+
+func TestAIPromptForbidsTreatment(t *testing.T) {
+	prompt := intentPrompt("2026-09-30")
+	for _, want := range []string{"не назначаешь лечение", "Никогда не называй лекарство", "type=treatment", "только JSON",
+		"cardiologist", "overhaul", "font", "Молоко 2,5%", "Сегодня 2026-09-30"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("в системном промпте нет %q", want)
+		}
+	}
+}
+
+func TestAITask(t *testing.T) {
+	srv := NewServer(testStore(t), &fakeGeocoder{}, nil)
+	srv.now = func() time.Time { return askNow }
+	tests := []struct {
+		answer string
+		ok     bool
+		want   TaskDraft
+	}{
+		{`{"type": "task", "title": "выпить таблетку", "time": "09:00"}`, true, TaskDraft{"Выпить таблетку", "09:00", "2026-09-30", "medicine"}},
+		{`{"type": "task", "title": "позвонить сыну", "time": "18:30", "date": "2026-10-03"}`, true, TaskDraft{"Позвонить сыну", "18:30", "2026-10-03", "call"}},
+		{`{"type": "task", "title": "полить цветы", "time": ""}`, true, TaskDraft{"Полить цветы", "", "2026-09-30", "other"}},
+		{`{"type": "task", "title": "x", "time": "25:00"}`, false, TaskDraft{}},
+		{`{"type": "task", "title": "x", "time": "9 утра"}`, false, TaskDraft{}},
+		{`{"type": "task", "title": "x", "time": "09:00", "date": "2020-01-01"}`, false, TaskDraft{}},
+		{`{"type": "task", "title": "x", "time": "09:00", "date": "2030-01-01"}`, false, TaskDraft{}},
+		{`{"type": "task", "title": "", "time": "09:00"}`, false, TaskDraft{}},
+	}
+	for _, tt := range tests {
+		srv.ai = &fakeAI{answer: tt.answer}
+		got, ok := srv.aiAnswer(context.Background(), "дела на потом "+tt.answer)
+		if ok != tt.ok {
+			t.Errorf("%s: ok=%v", tt.answer, ok)
+			continue
+		}
+		if ok && (got.Task == nil || *got.Task != tt.want) {
+			t.Errorf("%s: %+v", tt.answer, got.Task)
+		}
 	}
 }
 

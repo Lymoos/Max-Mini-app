@@ -227,11 +227,5 @@ func (s *Server) ask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	answer := answerQuestion(text)
-	if answer.Type == "unknown" {
-		if aiAnswer, ok := s.aiAnswer(r.Context(), text); ok {
-			answer = aiAnswer
-		}
-	}
-	writeJSON(w, http.StatusOK, answer)
+	writeJSON(w, http.StatusOK, s.understand(r.Context(), text))
 }

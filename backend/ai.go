@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type AI interface {
@@ -43,7 +45,7 @@ func (y *YandexGPT) Complete(ctx context.Context, system, user string) (string, 
 		"completionOptions": map[string]any{
 			"stream":      false,
 			"temperature": 0.1,
-			"maxTokens":   100,
+			"maxTokens":   200,
 		},
 		"messages": []gptMessage{
 			{Role: "system", Text: system},
@@ -146,6 +148,9 @@ func (s *Server) aiCorrect(ctx context.Context, kind string, items []CatalogItem
 type aiIntent struct {
 	Type   string `json:"type"`
 	Target string `json:"target"`
+	Title  string `json:"title"`
+	Time   string `json:"time"`
+	Date   string `json:"date"`
 }
 
 func parseIntent(answer string) (aiIntent, bool) {
@@ -161,21 +166,144 @@ func parseIntent(answer string) (aiIntent, bool) {
 	return intent, true
 }
 
+func intentPrompt(today string) string {
+	specialtyIDs := []string{}
+	for _, sp := range doctorSpecialties {
+		specialtyIDs = append(specialtyIDs, sp.ID+" ("+sp.Name+")")
+	}
+	benefitIDs := []string{}
+	for _, b := range benefits {
+		benefitIDs = append(benefitIDs, b.ID+" ("+b.Title+")")
+	}
+	guideIDs := []string{}
+	for _, g := range guides {
+		guideIDs = append(guideIDs, g.ID+" ("+g.Title+")")
+	}
+
+	return "Ты помощник в приложении для пожилых людей. Определи, что нужно пользователю, и ответь только JSON без пояснений: " +
+		`{"type": "...", "target": "...", "title": "", "time": "", "date": ""}` + ".\n" +
+		"ВАЖНО: ты не врач и не назначаешь лечение. Никогда не называй лекарство, если пользователь сам не написал его название. " +
+		"На вопросы вроде «что выпить от давления», «чем лечить сердце», «что принять от боли» отвечай type=treatment.\n" +
+		"Варианты type:\n" +
+		"- medicine: пользователь сам назвал лекарство, target — это название как он его написал\n" +
+		"- treatment: спрашивает, чем лечиться, но лекарство не назвал\n" +
+		"- product: товар в магазине, target — название из списка: " + catalogNames(productItems()) + "\n" +
+		"- pharmacy: аптеки рядом; shops: магазины рядом; social: соцпомощь, соцзащита, волонтёры\n" +
+		"- doctor: запись к врачу, target — id специальности или пусто: " + strings.Join(specialtyIDs, ", ") + "\n" +
+		"- benefit: льгота или документ, target — id: " + strings.Join(benefitIDs, ", ") + "\n" +
+		"- guide: инструкция по телефону, target — id: " + strings.Join(guideIDs, ", ") + "\n" +
+		"- task: напоминание или дело, title — что сделать, time — ЧЧ:ММ, date — ГГГГ-ММ-ДД. Сегодня " + today + "\n" +
+		"- medicines: раздел лекарств; documents: документы и льготы; help: инструкции; profile: профиль, адрес, имя\n" +
+		"- unknown: ничего не подходит.\n" +
+		"Используй только id и названия из списков."
+}
+
+var clockOnlyRe = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
+
+// лекарство принимаем от ИИ, только если человек сам его назвал, пусть и с ошибкой
+func namedInText(item CatalogItem, text string) bool {
+	if _, ok := findInText([]CatalogItem{item}, text); ok {
+		return true
+	}
+	for _, m := range fuzzySuggest([]CatalogItem{item}, text, 1) {
+		if m.ID == item.ID {
+			return true
+		}
+	}
+	return false
+}
+
+func catalogByNameOrID(items []CatalogItem, target string) (CatalogItem, bool) {
+	if item, ok := findByName(items, target); ok {
+		return item, true
+	}
+	want := string(normalize(target))
+	for _, item := range items {
+		if item.ID == target {
+			return item, true
+		}
+		for _, a := range item.Aliases {
+			if string(normalize(a)) == want {
+				return item, true
+			}
+		}
+	}
+	return CatalogItem{}, false
+}
+
+// каждое значение от ИИ сверяем со справочниками: выдуманное не пропускаем
+func checkIntent(intent aiIntent, text string, now time.Time) (AskAnswer, bool) {
+	switch intent.Type {
+	case "medicine":
+		item, ok := catalogByNameOrID(medicineItems(), intent.Target)
+		if !ok || !namedInText(item, text) {
+			return treatmentAnswer(), true
+		}
+		return medicineAnswer(item.ID), true
+	case "treatment":
+		return treatmentAnswer(), true
+	case "product":
+		if item, ok := catalogByNameOrID(productItems(), intent.Target); ok {
+			return productAnswer(item.ID), true
+		}
+	case "pharmacy", "social":
+		return featureAnswer(intent.Type), true
+	case "shops":
+		return featureAnswer("goods"), true
+	case "doctor":
+		if intent.Target == "" {
+			return doctorAnswer(""), true
+		}
+		if _, ok := findSpecialty(intent.Target); ok {
+			return doctorAnswer(intent.Target), true
+		}
+	case "benefit":
+		if _, ok := findBenefit(intent.Target); ok {
+			return benefitAnswer(intent.Target), true
+		}
+	case "guide":
+		if _, ok := findGuide(intent.Target); ok {
+			return guideAnswer(intent.Target), true
+		}
+	case "task":
+		return checkTask(intent, now)
+	case "medicines", "documents", "help":
+		return tabAnswers[intent.Type], true
+	case "profile":
+		return profileAnswer(), true
+	}
+	return AskAnswer{}, false
+}
+
+func checkTask(intent aiIntent, now time.Time) (AskAnswer, bool) {
+	title := strings.TrimSpace(intent.Title)
+	if title == "" || utf8.RuneCountInString(title) > maxTitleLen {
+		return AskAnswer{}, false
+	}
+	if intent.Time != "" && !clockOnlyRe.MatchString(intent.Time) {
+		return AskAnswer{}, false
+	}
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	date := today
+	if intent.Date != "" {
+		d, err := time.ParseInLocation("2006-01-02", intent.Date, now.Location())
+		if err != nil || d.Before(today) || d.After(today.AddDate(1, 0, 0)) {
+			return AskAnswer{}, false
+		}
+		date = d
+	}
+	r := []rune(title)
+	title = strings.ToUpper(string(r[0])) + string(r[1:])
+	t := TaskDraft{Title: title, Time: intent.Time, Date: date.Format("2006-01-02"), Kind: taskKind(strings.ToLower(title))}
+	return taskAnswer(t, now), true
+}
+
 // сюда попадают запросы, которые не поняли простые правила
 func (s *Server) aiAnswer(ctx context.Context, text string) (AskAnswer, bool) {
-	featureIDs := []string{}
-	for _, f := range features {
-		featureIDs = append(featureIDs, f.ID+" ("+f.Title+")")
-	}
-	system := "Ты помощник в приложении для пожилых людей. Определи, что нужно пользователю, и ответь только JSON вида " +
-		`{"type": "...", "target": "..."}` + ". Варианты:\n" +
-		"- type=medicine, target — название лекарства из списка: " + catalogNames(medicineItems()) + "\n" +
-		"- type=product, target — название товара из списка: " + catalogNames(productItems()) + "\n" +
-		"- type=feature, target — id из списка: " + strings.Join(featureIDs, ", ") + "\n" +
-		"- type=tab, target — medicines (лекарства), documents (документы) или help (помощь)\n" +
-		"- type=unknown, если ничего не подходит."
-
-	answer, ok := s.askAI(ctx, "intent:"+string(normalize(text)), system, text)
+	now := s.now()
+	today := now.Format("2006-01-02")
+	// в ответе могут быть «сегодня» и «завтра», поэтому кешируем на один день
+	answer, ok := s.askAI(ctx, "intent2:"+today+":"+string(normalize(text)), intentPrompt(today), text)
 	if !ok {
 		return AskAnswer{}, false
 	}
@@ -183,24 +311,16 @@ func (s *Server) aiAnswer(ctx context.Context, text string) (AskAnswer, bool) {
 	if !ok {
 		return AskAnswer{}, false
 	}
+	return checkIntent(intent, text, now)
+}
 
-	switch intent.Type {
-	case "medicine":
-		if item, ok := findByName(medicineItems(), intent.Target); ok {
-			return medicineAnswer(item.ID), true
-		}
-	case "product":
-		if item, ok := findByName(productItems(), intent.Target); ok {
-			return productAnswer(item.ID), true
-		}
-	case "feature":
-		if f, ok := findFeature(intent.Target); ok {
-			return AskAnswer{Type: "feature", Target: f.ID, Message: "Открываю «" + f.Title + "»", Feature: &f}, true
-		}
-	case "tab":
-		if title, ok := tabTitles[intent.Target]; ok {
-			return AskAnswer{Type: "tab", Target: intent.Target, Message: "Открываю раздел «" + title + "»"}, true
+// сначала правила и нечёткий поиск, ИИ — только если они не справились
+func (s *Server) understand(ctx context.Context, text string) AskAnswer {
+	answer := answerQuestion(text, s.now())
+	if answer.Type == "unknown" {
+		if aiAnswer, ok := s.aiAnswer(ctx, text); ok {
+			return aiAnswer
 		}
 	}
-	return AskAnswer{}, false
+	return answer
 }

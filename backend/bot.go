@@ -152,7 +152,8 @@ func (b *Bot) welcome(ctx context.Context, user *maxUser) error {
 	}
 	text := "Здравствуйте" + name + "! Я помощник.\n\n" +
 		"Напишите название лекарства или продукта — подскажу, где купить рядом и сколько стоит.\n" +
-		"Ещё я напомню о делах из вашего списка: выпить таблетку, сходить к врачу."
+		"Помогу записаться к врачу, найти соцпомощь, льготы и инструкции для телефона.\n" +
+		"Напишите «напомни выпить таблетку в 9» — добавлю задачу и напомню вовремя."
 	return b.api.Send(ctx, id, maxMessage{Text: text, Attachments: []map[string]any{
 		keyboard([]maxButton{b.openApp("Открыть помощника", "")}, []maxButton{geoButton()}),
 	}})
@@ -192,12 +193,7 @@ func (b *Bot) onLocation(ctx context.Context, userID string, lat, lon float64) e
 }
 
 func (b *Bot) reply(ctx context.Context, userID, text string) maxMessage {
-	answer := answerQuestion(text)
-	if answer.Type == "unknown" {
-		if aiAnswer, ok := b.srv.aiAnswer(ctx, text); ok {
-			answer = aiAnswer
-		}
-	}
+	answer := b.srv.understand(ctx, text)
 
 	p, err := b.srv.store.GetProfile(ctx, userID)
 	if err != nil {
@@ -206,34 +202,30 @@ func (b *Bot) reply(ctx context.Context, userID, text string) maxMessage {
 	loc := p.Location()
 
 	var msg maxMessage
-	switch {
-	case answer.Type == "medicine":
+	switch answer.Type {
+	case "medicine":
 		offers, err := b.srv.store.MedicineOffers(ctx, answer.Target, loc.Lat, loc.Lon, searchKm)
 		if err != nil {
 			return b.sorry()
 		}
-		msg = b.offersMessage(answer.Medicine.Name, "аптеках", sortOffers(offers, botTopLimit), "Все аптеки в приложении", "med_"+answer.Target)
-	case answer.Type == "product":
+		msg = b.offersMessage(answer.Medicine.Name, "аптеках", sortOffers(offers, botTopLimit), "Все аптеки в приложении", answer.payload())
+	case "product":
 		offers, err := b.srv.store.ProductOffers(ctx, answer.Target, b.srv.today(), loc.Lat, loc.Lon, searchKm)
 		if err != nil {
 			return b.sorry()
 		}
-		msg = b.offersMessage(answer.Product.Name, "магазинах", sortOffers(offers, botTopLimit), "Все магазины в приложении", "prod_"+answer.Target)
-	case answer.Type == "feature" && (answer.Target == "pharmacy" || answer.Target == "goods" || answer.Target == "social"):
+		msg = b.offersMessage(answer.Product.Name, "магазинах", sortOffers(offers, botTopLimit), "Все магазины в приложении", answer.payload())
+	case "feature":
 		msg = b.placesMessage(ctx, answer.Target, loc)
-	case answer.Type == "feature" && answer.Target == "doctor":
+	case "task":
+		msg = taskMessage(answer)
+	case "unknown":
 		msg = maxMessage{
-			Text:        "Помогу записаться к врачу: покажу вашу поликлинику по прописке, врачей и куда подать запись.",
-			Attachments: []map[string]any{keyboard([]maxButton{b.openApp("Записаться к врачу", "doctor")})},
-		}
-	case answer.Type == "tab":
-		titles := map[string]string{"medicines": "Открыть лекарства", "documents": "Открыть документы и льготы", "help": "Открыть инструкции"}
-		msg = maxMessage{Text: answer.Message, Attachments: []map[string]any{keyboard([]maxButton{b.openApp(titles[answer.Target], answer.Target)})}}
-	default:
-		msg = maxMessage{
-			Text:        "Пока не понял. Напишите, например: «парацетамол», «молоко», «записаться к врачу» или «соцпомощь».",
+			Text:        "Пока не понял. Напишите, например: «парацетамол», «молоко», «нужен кардиолог» или «напомни выпить таблетку в 9».",
 			Attachments: []map[string]any{keyboard([]maxButton{b.openApp("Открыть помощника", "")})},
 		}
+	default:
+		msg = maxMessage{Text: answer.Message, Attachments: []map[string]any{keyboard([]maxButton{b.openApp(answer.Button, answer.payload())})}}
 	}
 
 	if loc.IsDefault && (answer.Type == "medicine" || answer.Type == "product" || answer.Type == "feature") {
@@ -241,6 +233,33 @@ func (b *Bot) reply(ctx context.Context, userID, text string) maxMessage {
 		msg.Attachments = append(msg.Attachments, keyboard([]maxButton{geoButton()}))
 	}
 	return msg
+}
+
+// задачу создаём только после нажатия «Добавить», данные задачи лежат в кнопке
+func taskMessage(answer AskAnswer) maxMessage {
+	t := answer.Task
+	if t.Time == "" {
+		return maxMessage{Text: "Во сколько напомнить? Напишите, например: «напомни " + strings.ToLower(t.Title) + " в 9:00»."}
+	}
+	payload := "addtask:" + t.Date + " " + t.Time + " " + t.Kind + " " + t.Title
+	return maxMessage{
+		Text:        answer.Message,
+		Attachments: []map[string]any{keyboard([]maxButton{{Type: "callback", Text: "Добавить", Payload: payload}})},
+	}
+}
+
+func (b *Bot) addTaskFromButton(ctx context.Context, userID, callbackID, data string) error {
+	parts := strings.SplitN(data, " ", 4)
+	if len(parts) != 4 || !taskKinds[parts[2]] || !clockOnlyRe.MatchString(parts[1]) || parts[3] == "" {
+		return b.api.Answer(ctx, callbackID, "Не понял кнопку")
+	}
+	if _, err := time.Parse("2006-01-02", parts[0]); err != nil || parts[0] < b.srv.today() {
+		return b.api.Answer(ctx, callbackID, "Эта дата уже прошла")
+	}
+	if _, err := b.srv.store.AddTask(ctx, userID, parts[0], Task{Time: parts[1], Title: parts[3], Kind: parts[2]}); err != nil {
+		return err
+	}
+	return b.api.Answer(ctx, callbackID, "Добавил: "+parts[3]+", "+humanDate(parts[0], b.srv.now())+" в "+parts[1])
 }
 
 func (b *Bot) sorry() maxMessage {
@@ -314,6 +333,9 @@ func (b *Bot) onCallback(ctx context.Context, u maxUpdate) error {
 	c := u.Callback
 	userID := strconv.FormatInt(c.User.UserID, 10)
 	action, idText, _ := strings.Cut(c.Payload, ":")
+	if action == "addtask" {
+		return b.addTaskFromButton(ctx, userID, c.CallbackID, idText)
+	}
 	taskID, err := strconv.Atoi(idText)
 	if err != nil {
 		return b.api.Answer(ctx, c.CallbackID, "Не понял кнопку")

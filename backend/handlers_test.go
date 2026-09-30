@@ -159,13 +159,13 @@ func TestAsk(t *testing.T) {
 
 func TestAskFallsBackToAI(t *testing.T) {
 	srv, _ := newTestServer(t)
-	ai := &fakeAI{answer: `{"type": "medicine", "target": "Парацетамол"}`}
+	ai := &fakeAI{answer: `{"type": "doctor", "target": "neurologist"}`}
 	srv.ai = ai
 
-	rec := doRequest(srv, "POST", "/api/ask", `{"text": "что выпить от температуры"}`, nil)
+	rec := doRequest(srv, "POST", "/api/ask", `{"text": "голова кружится по утрам"}`, nil)
 	var answer AskAnswer
 	json.Unmarshal(rec.Body.Bytes(), &answer)
-	if answer.Type != "medicine" || answer.Medicine == nil || answer.Medicine.ID != "paracetamol" {
+	if answer.Type != "doctor" || answer.Specialty == nil || answer.Specialty.ID != "neurologist" || answer.Button == "" {
 		t.Errorf("ИИ должен был понять запрос: %s", rec.Body.String())
 	}
 
