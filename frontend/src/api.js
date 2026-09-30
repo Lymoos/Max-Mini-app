@@ -142,3 +142,35 @@ export function saveClinic(clinicId) {
 export function getSocialNearby() {
   return request('/social/nearby')
 }
+
+export function getBenefits() {
+  return request('/benefits')
+}
+
+export function getBenefit(id) {
+  return request('/benefits/' + encodeURIComponent(id))
+}
+
+export function saveBenefit(id, changes) {
+  return request('/benefits/' + encodeURIComponent(id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes),
+  })
+}
+
+export function getGuides() {
+  return request('/guides')
+}
+
+export function getGuide(id) {
+  return request('/guides/' + encodeURIComponent(id))
+}
+
+export function markGuide(id, read) {
+  return request('/guides/' + encodeURIComponent(id) + '/read', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ read: read }),
+  })
+}

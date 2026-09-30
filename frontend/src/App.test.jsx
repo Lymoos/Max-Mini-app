@@ -44,7 +44,7 @@ describe('App', () => {
     expect(within(nav).getByText('Дом').closest('button')).toHaveAttribute('aria-current', 'page')
 
     await user.click(within(nav).getByText('Документы'))
-    expect(screen.getByRole('heading', { name: 'Документы' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Документы и льготы' })).toBeInTheDocument()
     expect(screen.queryByText('Задачи на сегодня')).not.toBeInTheDocument()
     expect(within(nav).getByText('Документы').closest('button')).toHaveAttribute('aria-current', 'page')
 
@@ -58,7 +58,7 @@ describe('App', () => {
     render(<App />)
 
     await user.type(screen.getByLabelText('Что вам нужно?'), 'паспорт{Enter}')
-    expect(await screen.findByRole('heading', { name: 'Документы' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Документы и льготы' })).toBeInTheDocument()
   })
 
   it('поиск лекарства открывает цены в аптеках, крестик — все аптеки', async () => {
@@ -224,5 +224,47 @@ describe('App', () => {
 
     await user.click(within(screen.getByRole('navigation')).getByText('Дом'))
     expect(await screen.findByText('Задачи на сегодня')).toBeInTheDocument()
+  })
+
+  it('нижнее меню: документы → льгота → назад, помощь → инструкция; из «Для вас» — в замену паспорта', async () => {
+    const user = userEvent.setup()
+    const benefitsList = {
+      categories: ['Документы'],
+      summary: { fit: 1, inProgress: 0, approved: 0 },
+      items: [{ id: 'passport', category: 'Документы', title: 'Замена паспорта', short: 'За 90 дней', auto: false, fit: true, fitReason: 'Скоро 45', status: 'not_started', stale: false, docsDone: 0, docsTotal: 1 }],
+    }
+    const passport = {
+      benefit: { id: 'passport', category: 'Документы', title: 'Замена паспорта', short: 'За 90 дней', who: 'В 20 и 45 лет', documents: ['Паспорт'], steps: ['Подайте заявление'], links: [{ title: 'Госуслуги', url: 'https://www.gosuslugi.ru/x' }], auto: false },
+      fit: true, fitReason: 'Скоро 45', state: { status: 'not_started', docs: [] }, stale: false,
+    }
+    mockFetch({
+      'GET /api/tasks/today': () => jsonResponse(demoTasks),
+      'GET /api/features': () => jsonResponse(demoFeatures),
+      'GET /api/for-you': () => jsonResponse([{ type: 'passport', title: 'Скоро менять паспорт', text: 'Через месяц 45' }]),
+      'GET /api/benefits': () => jsonResponse(benefitsList),
+      'GET /api/benefits/passport': () => jsonResponse(passport),
+      'GET /api/guides': () => jsonResponse([{ id: 'call', title: 'Как позвонить', short: 'Номер', icon: 'phone', important: false, read: false }]),
+      'GET /api/guides/call': () => jsonResponse({ guide: { id: 'call', title: 'Как позвонить', icon: 'phone', steps: ['Наберите номер'] }, read: false }),
+    })
+    render(<App />)
+    const nav = screen.getByRole('navigation')
+
+    await user.click(within(nav).getByText('Документы'))
+    await user.click(await screen.findByRole('button', { name: /Замена паспорта/ }))
+    expect(await screen.findByText('В 20 и 45 лет')).toBeInTheDocument()
+    await user.click(screen.getByText('Назад'))
+    expect(await screen.findByText('Документы и льготы')).toBeInTheDocument()
+
+    await user.click(within(nav).getByText('Помощь'))
+    await user.click(await screen.findByRole('button', { name: /Как позвонить/ }))
+    expect(await screen.findByText('Наберите номер')).toBeInTheDocument()
+    expect(within(nav).getByText('Помощь').closest('button')).toHaveAttribute('aria-current', 'page')
+
+    await user.click(within(nav).getByText('Дом'))
+    await user.click(await screen.findByRole('button', { name: /Для вас/ }))
+    await user.click(screen.getByRole('button', { name: 'Как заменить паспорт' }))
+    expect(await screen.findByText('В 20 и 45 лет')).toBeInTheDocument()
+    expect(within(nav).getByText('Документы').closest('button')).toHaveAttribute('aria-current', 'page')
+    localStorage.removeItem('forYouOpen')
   })
 })

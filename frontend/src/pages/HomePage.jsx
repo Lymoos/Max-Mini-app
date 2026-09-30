@@ -3,7 +3,7 @@ import Features from '../components/Features'
 import ForYou from '../components/ForYou'
 import TodayTasks from '../components/TodayTasks'
 
-function HomePage({ onOpenTab, onOpenFeature, onOpenMedicine, onOpenProduct, onOpenShop, onOpenProfile }) {
+function HomePage({ onOpenTab, onOpenFeature, onOpenMedicine, onOpenProduct, onOpenShop, onOpenBenefit, onOpenProfile }) {
   function handleAnswer(answer) {
     if (answer.type === 'tab') {
       onOpenTab(answer.target)
@@ -21,7 +21,7 @@ function HomePage({ onOpenTab, onOpenFeature, onOpenMedicine, onOpenProduct, onO
       <AskBox onAnswer={handleAnswer} onOpenProfile={onOpenProfile} />
       <div className="page">
         <TodayTasks />
-        <ForYou onOpenShop={onOpenShop} />
+        <ForYou onOpenShop={onOpenShop} onOpenBenefit={onOpenBenefit} />
         <Features onOpen={onOpenFeature} />
       </div>
     </>

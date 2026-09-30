@@ -21,7 +21,7 @@ function saveOpen(value) {
   }
 }
 
-function ForYou({ onOpenShop }) {
+function ForYou({ onOpenShop, onOpenBenefit }) {
   const [items, setItems] = useState([])
   const [open, setOpen] = useState(readOpen)
 
@@ -61,6 +61,16 @@ function ForYou({ onOpenShop }) {
                   <p className="foryou-title">{item.title}</p>
                 </div>
                 <p className="foryou-text">{item.text}</p>
+                {item.type === 'passport' && onOpenBenefit && (
+                  <button
+                    type="button"
+                    className="link-btn foryou-link"
+                    onClick={() => onOpenBenefit('passport')}
+                    tabIndex={open ? 0 : -1}
+                  >
+                    Как заменить паспорт
+                  </button>
+                )}
                 {item.places && item.places.length > 0 && (
                   <ul className="foryou-places">
                     {item.places.map((p) => (

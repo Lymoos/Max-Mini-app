@@ -1,20 +1,19 @@
 import { useState } from 'react'
 import BottomNav from './components/BottomNav'
+import BenefitPage from './pages/BenefitPage'
 import ClinicPage from './pages/ClinicPage'
 import ClinicsPage from './pages/ClinicsPage'
 import DoctorPage from './pages/DoctorPage'
+import DocumentsPage from './pages/DocumentsPage'
 import GoodsPage from './pages/GoodsPage'
+import GuidePage from './pages/GuidePage'
+import HelpPage from './pages/HelpPage'
 import HomePage from './pages/HomePage'
 import MedicinesPage from './pages/MedicinesPage'
 import ProfilePage from './pages/ProfilePage'
 import ShopPage from './pages/ShopPage'
 import SocialPage from './pages/SocialPage'
 import StubPage from './pages/StubPage'
-
-const tabPages = {
-  documents: { title: 'Документы', icon: 'document' },
-  help: { title: 'Помощь', icon: 'help' },
-}
 
 function App() {
   const [tab, setTab] = useState('home')
@@ -24,6 +23,8 @@ function App() {
   const [shopId, setShopId] = useState(null)
   const [clinicId, setClinicId] = useState(null)
   const [doctorId, setDoctorId] = useState(null)
+  const [benefitId, setBenefitId] = useState(null)
+  const [guideId, setGuideId] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileVersion, setProfileVersion] = useState(0)
 
@@ -34,6 +35,8 @@ function App() {
     setShopId(null)
     setClinicId(null)
     setDoctorId(null)
+    setBenefitId(null)
+    setGuideId(null)
     setTab(name)
     window.scrollTo(0, 0)
   }
@@ -66,6 +69,11 @@ function App() {
   function openShop(shop) {
     setShopId(shop.id)
     window.scrollTo(0, 0)
+  }
+
+  function openBenefit(id) {
+    openTab('documents')
+    setBenefitId(id)
   }
 
   function closeFeature() {
@@ -130,6 +138,7 @@ function App() {
         onOpenMedicine={openMedicine}
         onOpenProduct={openProduct}
         onOpenShop={openShop}
+        onOpenBenefit={openBenefit}
         onOpenProfile={() => setProfileOpen(true)}
       />
     )
@@ -143,8 +152,31 @@ function App() {
         onOpenProfile={() => setProfileOpen(true)}
       />
     )
+  } else if (tab === 'documents') {
+    page =
+      benefitId !== null ? (
+        <BenefitPage key={benefitId} benefitId={benefitId} onBack={() => setBenefitId(null)} />
+      ) : (
+        <DocumentsPage
+          key={profileVersion}
+          onOpenBenefit={(id) => {
+            setBenefitId(id)
+            window.scrollTo(0, 0)
+          }}
+        />
+      )
   } else {
-    page = <StubPage title={tabPages[tab].title} icon={tabPages[tab].icon} />
+    page =
+      guideId !== null ? (
+        <GuidePage key={guideId} guideId={guideId} onBack={() => setGuideId(null)} />
+      ) : (
+        <HelpPage
+          onOpenGuide={(id) => {
+            setGuideId(id)
+            window.scrollTo(0, 0)
+          }}
+        />
+      )
   }
 
   return (

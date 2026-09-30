@@ -149,6 +149,69 @@ function IconPaths({ name }) {
           <path d="M12 17h.01" />
         </>
       )
+    case 'wallet':
+      return (
+        <>
+          <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
+          <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
+        </>
+      )
+    case 'percent':
+      return (
+        <>
+          <path d="M19 5 5 19" />
+          <circle cx="6.5" cy="6.5" r="2.5" />
+          <circle cx="17.5" cy="17.5" r="2.5" />
+        </>
+      )
+    case 'shield':
+      return <path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z" />
+    case 'sun':
+      return (
+        <>
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2" />
+          <path d="M12 20v2" />
+          <path d="m4.9 4.9 1.4 1.4" />
+          <path d="m17.7 17.7 1.4 1.4" />
+          <path d="M2 12h2" />
+          <path d="M20 12h2" />
+          <path d="m6.3 17.7-1.4 1.4" />
+          <path d="m19.1 4.9-1.4 1.4" />
+        </>
+      )
+    case 'wifi':
+      return (
+        <>
+          <path d="M12 20h.01" />
+          <path d="M2 8.8a15 15 0 0 1 20 0" />
+          <path d="M5 12.9a10 10 0 0 1 14 0" />
+          <path d="M8.5 16.4a5 5 0 0 1 7 0" />
+        </>
+      )
+    case 'image':
+      return (
+        <>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle cx="9" cy="9" r="2" />
+          <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+        </>
+      )
+    case 'video':
+      return (
+        <>
+          <path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 11" />
+          <rect x="2" y="6" width="14" height="12" rx="2" />
+        </>
+      )
+    case 'external':
+      return (
+        <>
+          <path d="M15 3h6v6" />
+          <path d="M10 14 21 3" />
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        </>
+      )
     case 'check':
       return <path d="M20 6 9 17l-5-5" />
     case 'back':
